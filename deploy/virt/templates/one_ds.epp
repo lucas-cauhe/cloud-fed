@@ -1,0 +1,21 @@
+<%- | String $name,
+      String $mad,
+      String $type,
+      String $bridge_list,
+      Hash $options
+      | -%>
+NAME = <%= $name %>
+TYPE = <%= $type %>
+TM_MAD = <%= $mad %>
+<% if $mad == 'ceph' { -%>
+<% if $type == 'IMAGE_DS' { -%>
+DS_MAD = ceph
+<%- } -%>
+DISK_TYPE = RBD
+
+<% $options.each |$opt, $val| { -%>
+<%= $opt.upcase() %> = <%= $val %>
+<%- } %>
+<%- } %>
+
+BRIDGE_LIST = <%= $bridge_list %>

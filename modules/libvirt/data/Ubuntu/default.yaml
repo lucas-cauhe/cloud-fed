@@ -1,0 +1,13 @@
+---
+# Ubuntu/default.yaml
+# Defaults for Ubuntu
+
+libvirt::libvirt_package_names:
+  - 'libvirt-daemon-system'
+  - 'libvirt-clients'
+  - 'qemu-system-x86'
+
+libvirt::qemu_hook_packages:
+  drbd:
+    - 'xmlstarlet'
+    - 'python3-libvirt'

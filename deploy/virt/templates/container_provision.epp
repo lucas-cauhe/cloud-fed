@@ -1,0 +1,33 @@
+<%- |   String $container_name,
+        Array[Hash] $plan
+| -%>
+
+{
+	"container_name": "<%= $container_name %>",
+	"plan": [
+		<% $plan.each |$action_type| { -%>
+		{
+			"type": "<%= $action_type["type"] %>",
+			"onlyif": <%= $action_type["onlyif"] ? { undef => true, default => $action_type["onlyif"] } %>,
+			"actions":  <% if $action_type["type"] =~ /(container|guest_file)/ { -%>
+			
+				<%= stdlib::to_json($action_type["actions"]) %>
+		
+			<% } -%>
+			<%- elsif $action_type["type"] == "guest" { -%>
+				<%- $transformed_actions = $action_type["actions"].map |$action| { 
+					$first_word = split($action, " ")[0]
+					$tail = join(split($action, " ")[1,-1], " ")
+					if $first_word =~ /%.+%/ { 
+						"$first_word podman exec $container_name $tail"
+					} else { 
+						"podman exec $container_name $action" 
+					}
+				} -%>
+				<%= stdlib::to_json($transformed_actions) %>
+			<% } -%>
+		},
+		<% } -%>
+		{ "type": "none", "actions": [] }
+		]
+}

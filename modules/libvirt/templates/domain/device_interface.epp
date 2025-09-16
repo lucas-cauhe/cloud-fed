@@ -1,0 +1,37 @@
+<%- |  Libvirt::Domain::Interface   $iface,
+       String $boot,
+    | -%>
+    <interface type='<%= pick($iface['interface_type'],'network') %>'>
+<%- if 'mac' in $iface { -%>
+      <mac address='<%= $iface['mac'] %>'/>
+<%- } -%>
+<%- if 'filter' in $iface { -%>
+   <%- if $iface['filter'] =~ String { -%>
+      <filterref filter='<%= $iface['filter'] %>'/>
+   <%- } else { -%>
+      <filterref filter='<%= $iface['filter']['filterref'] %>'>
+      <%- $iface['filter']['parameters'].each |String $k, Variant[String,Array] $val| { -%>
+        <%- if $val =~ String { -%>
+          <parameter name='<%= $k %>' value='<%= $val %>'/>
+        <%- } else { -%>
+          <%- $val.each | String $v| { -%>
+            <parameter name='<%= $k %>' value='<%= $v %>'/>
+          <%- } -%>
+        <%- } -%>
+      <%- } -%>
+      </filterref>
+   <%- } -%>
+<%- } -%>
+<%- if $iface['source'] { -%> 
+      <source <% $iface['source'].each |String $k, String $v| { %><%= $k %>='<%= $v %>' <% } %>/>
+<%- } elsif $iface['network'] { %><%# deprecated, do not use use source above -%>
+      <source <%= pick($iface['interface_type'],'network') %>='<%= $iface['network'] %>'<% if 'portgroup' in $iface { %> portgroup='<%= $iface['portgroup'] %>'<% } %>/>
+<%- } -%>
+<%- if $iface['address'] { -%>
+      <address <% $iface['address'].each |String $k, String $v| { %><%= $k %>='<%= $v %>' <% } %>/>
+<%- } -%>
+      <model type='<% if 'type' in $iface { %><%= $iface['type'] %><% }else{ %>virtio<% } %>'/>
+<%- if $boot == 'per-device' and 'boot_order' in $iface { -%>
+      <boot order='<%= $iface['boot_order'] %>'/>
+<%- } -%>
+    </interface>

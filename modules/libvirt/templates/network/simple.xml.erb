@@ -1,0 +1,48 @@
+<network>
+  <name><%= @name %></name>
+  <%- if @forward_mode -%>
+    <forward<%-if @forward_dev -%> dev='<%= @forward_dev -%>'<%-end-%> mode='<%= @forward_mode -%>'<%-if @forward_interfaces.empty? -%>/<%-end-%>>
+      <%- if !@forward_interfaces.empty? -%>
+        <%- @forward_interfaces.each do |dev| -%>
+          <interface dev='<%= dev -%>'/>
+        <%- end -%>
+      </forward>
+    <%- end -%>
+  <%- end -%>
+  <%- if @bridge -%>
+  <bridge name='<%= @bridge %>'/>
+  <%- end -%>
+  <%- if @mtu -%>
+  <mtu size='<%= @mtu %>'/>
+  <%- end -%>
+  <%- if @ip_address and @ip_netmask -%>
+  <ip address='<%= @ip_address %>' netmask='<%= @ip_netmask %>'>
+    <%- if @dhcp_start and @dhcp_end -%>
+    <dhcp>
+      <range start='<%= @dhcp_start %>' end='<%= @dhcp_end %>'/>
+    </dhcp>
+    <%- end -%>
+  </ip>
+  <%- end -%>
+  <%- if @dns_enable -%>
+  <dns enable='<%= @dns_enable %>'/>
+  <%- end -%>
+  <%- @portgroups.each do |pg| -%>
+  <portgroup name='<%= pg['name'] %>'>
+    <%- if pg['trunk'] -%>
+    <vlan trunk='yes'>
+      <% pg['vlan_tag'].each do |tag| %>
+      <tag id='<%= tag %>'/>
+      <% end -%>
+    </vlan>
+    <%- else -%>
+    <vlan>
+      <tag id='<%= pg['vlan_tag'] %>'/>
+    </vlan>
+    <%- end -%>
+  </portgroup>
+  <%- end -%>
+  <%- if @virtualport_type -%>
+  <virtualport type='<%= @virtualport_type %>'/>
+  <%- end -%>
+</network>
