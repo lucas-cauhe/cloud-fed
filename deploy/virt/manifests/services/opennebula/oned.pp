@@ -6,6 +6,8 @@ define virt::services::opennebula::oned (
 ){
 	# Container declaration
 
+	# quitar los session de pam
+	# pasar a root y oneadmin la clave de /var/lib/one/.ssh/id_rsa.pub como root
 	$env = $facts['env_vars']
 	$imageName = "almalinux_oned"
 	if $fed_id == "10" {
@@ -51,21 +53,21 @@ DB = [  BACKEND = "mysql",
 	]
 	| - END
 	
-	ensure_resource('Virt::Container_file', 'extended_almalinux', {
+	ensure_resource('Virt::Container_file', $imageName, {
 		from => 'docker.io/library/almalinux:9',	
+		cp => [
+			"./opennebula.repo /etc/yum.repos.d/opennebula.repo"
+		],
 		run => [
 			"dnf update -y && dnf install -y sudo net-tools iproute 'dnf-command(config-manager)'",
 			"dnf config-manager --set-enabled crb",
 			"dnf clean all",
 			"dnf makecache",
-			"dnf -y install epel-release"
-		]
-	})
-	ensure_resource('Virt::Container_file',  $imageName, {
-		from => 'extended_almalinux',	
-		run => [
-			"dnf update -y && dnf -y install mariadb",
+			"dnf -y install epel-release",
+			"dnf makecache",
 			"groupadd sudo",
+			"dnf -y install mariadb opennebula",
+			"usermod -a -G sudo oneadmin"
 		]
 	})
 	virt::podman_unit { "${oned[hostname]}.container":
@@ -98,16 +100,12 @@ DB = [  BACKEND = "mysql",
 			{
 				"type" => "container",
 				"actions" => [
-					"podman cp $virt::containers::file_templates_path/opennebula.repo ${oned[hostname]}:/etc/yum.repos.d",
 					"podman cp $virt::containers::scripts_path/mock_service.sh ${oned[hostname]}:/sbin/service"
 				]
 			},
 			{
 				"type" => "guest",
-				"actions" => $guest_vlan + $connect_to_internet + [
-				 "dnf -y install opennebula", 
-			         "usermod -a -G sudo oneadmin"
-				] 
+				"actions" => $guest_vlan + $connect_to_internet 
 			},
 			{
 				"type" => "guest_file",

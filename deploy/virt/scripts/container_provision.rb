@@ -2,6 +2,7 @@
 
 require 'json'
 require 'open3'
+require 'net_http_unix'
 
 args_path = ARGV[0]
 command_entries = ['container', 'guest']
@@ -11,6 +12,12 @@ command_entries = ['container', 'guest']
 file = open(args_path)
 parsed = file.read
 params = JSON.parse(parsed)
+
+#
+# Connect to Podman API
+#
+client = NetX::HTTPUnix.new("unix:////run/podman/podman.sock")
+req = Net::HTTP::Post.new("http://d/v5.0.0/libpod/containers/#{params["container_name"]}/exec")
 
 def get_container_addressed_interface(cname, address)
   output = `podman exec #{cname} ip a show to #{address} | cut -d ':' -f2 | head -n1 | cut -d '@' -f1`

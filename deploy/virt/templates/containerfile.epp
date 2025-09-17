@@ -1,13 +1,19 @@
 <%- |   String $from,
         Array[String] $run,
-	Array[String] $cmd
+	Array[String] $cmd,
+	Array[String] $cp
 | -%>
 
 FROM <%= $from %>
 
-<% $run.each |$cmd| { -%>
+<% $cp.each |$copier| { -%>
 
-RUN <%= $cmd %>
+COPY <%= $copier %>
+
+<% } -%>
+<% $run.each |$runner| { -%>
+
+RUN <%= $runner %>
 
 <% } -%>
 

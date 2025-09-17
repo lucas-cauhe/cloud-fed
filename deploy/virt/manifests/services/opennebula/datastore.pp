@@ -28,12 +28,15 @@ define virt::services::opennebula::datastore (
 	#
 	# Copy file to destination (podman cmd since ssh might fail)
 	#
-	exec { "/usr/bin/podman cp $ds_file $one_frontend:$ds_file": 
+	exec { $ds_file:
+		command => "/usr/bin/podman cp $ds_file $one_frontend:$ds_file"
 	}->
 
 	#
 	# Apply ds manifest
 	#
 	exec { "/usr/bin/podman exec $one_frontend onedatastore create $ds_file": 
+		require => Exec[$ds_file],
+		refreshonly => true
 	}
 }
