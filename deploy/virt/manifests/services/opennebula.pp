@@ -1,11 +1,15 @@
 define virt::services::opennebula(
 	String $id
 ){
-	ensure_resource('virt::services::opennebula::db', "one_db", {})
+	['0', '1', '2'].each |$deploy_id| {
+		ensure_resource('virt::services::opennebula::db',  "one-db-$deploy_id", {
+			id => $deploy_id 
+		})
+	}		
 	ensure_resource('virt::services::opennebula::kvm_node', "kvm_node", {})
 	$virt::containers::oned_services[$id].each |$oned| {
 		virt::services::opennebula::oned { "${oned[hostname]}":
-			require => [Virt::Services::Opennebula::Kvm_node["kvm_node"], Virt::Services::Opennebula::Db["one_db"]],
+			require => [Virt::Services::Opennebula::Kvm_node["kvm_node"], Virt::Services::Opennebula::Db["one-db-0"], Virt::Services::Opennebula::Db["one-db-1"], Virt::Services::Opennebula::Db["one-db-2"]],
 			leader => $virt::containers::oned_services[$id][0],
 			oned => $oned,
 			fed_id => $id

@@ -68,11 +68,8 @@ define virt::services::opennebula::ceph(
 	#
 	# System Datastore
 	#
-	exec { "/usr/bin/podman exec ${frontend_nodes[0]} onedatastore delete 0":
-		require => Package["qemu-utils"],
-		refreshonly => true
-	}->
 	virt::services::opennebula::datastore { "system-$fed_id":
+		require => Package["qemu-utils"],
 		one_frontend => $virt::containers::oned_services[$fed_id][0][hostname],
 		mad => 'ceph',
 		type => 'system',
@@ -90,11 +87,8 @@ define virt::services::opennebula::ceph(
 	#
 	# Image Datastore
 	#
-	exec { "/usr/bin/podman exec ${frontend_nodes[0]} onedatastore delete 1":
+	virt::services::opennebula::datastore { "image-$fed_id":
 		require => Package["qemu-utils"],
-		refreshonly => true
-	}->
-	virt::services::opennebula::datastore { "image_ds-$fed_id":
 		one_frontend => $virt::containers::oned_services[$fed_id][0][hostname],
 		mad => 'ceph',
 		type => 'image',
@@ -135,14 +129,14 @@ define virt::services::opennebula::ceph(
 		content => inline_epp($secret_xml, {'secret' => $libvirt_secret, 'fed_id' => $fed_id}),
 		ensure => 'present'
 	}
-	exec { 'remove-secrets': 
+	exec { "remove-secrets-$fed_id": 
 		command => "/usr/bin/virsh -c qemu:///system secret-undefine --secret \"\$(/usr/bin/virsh -c qemu:///system secret-list | /usr/bin/awk '/ceph client.libvirt-$fed_id secret/ {print \$1}')\"",
 		require => File["/tmp/libvirt_secret_$fed_id.xml"], 
 		refreshonly => true,
 		onlyif => "/usr/bin/virsh -c qemu:///system secret-list | grep \"ceph client.libvirt-10 secret\""
 	}
 	exec { "/usr/bin/virsh -c qemu:///system secret-define /tmp/libvirt_secret_$fed_id.xml":
-		require => Exec["remove-secrets"],
+		require => Exec["remove-secrets-$fed_id"],
 	}->
 	exec { "/usr/bin/virsh -c qemu:///system secret-set-value --secret $libvirt_secret --base64 \$(/usr/bin/cat /etc/$cluster_name/client.libvirt-$fed_id.key)":
 	}

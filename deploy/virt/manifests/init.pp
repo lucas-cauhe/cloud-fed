@@ -11,10 +11,10 @@ class virt {
 	}
 	class {'virt::services::gateway':
 		require => $virt::containers::deployment_units.map |$du| { Virt::Podman_network["network-$du"] },
-		notify => $virt::containers::deployment_units.map |$du| { Storage::Ceph["ceph-$du"] }
 	}
 	$virt::containers::deployment_units.each |$id| {
 		storage::ceph {"ceph-$id":
+			require => Class["virt::services::gateway"], 
 			id => $id
 		}->
 		virt::services { "services-$id":

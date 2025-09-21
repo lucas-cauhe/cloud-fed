@@ -1,42 +1,38 @@
 define storage::ceph::rbd (
-	String $conf = '/etc/ceph',
+	String $cluster_name = 'ceph',
 	String $pool,
 	String $image,
 	String $size,
 	String $mountpoint,
 ) {
+	$pwd = common::pwd()
+	$scripts_path = "$pwd/deploy/storage/scripts"
+
 	#
 	# Define pool & image
 	#
-	storage::ceph::pool { $pool:
+	ensure_resource('storage::ceph::pool', $pool, {
 		pg_autoscale => 'on',
-		pg_num => 128
-	}->
+		pg_num => 128,
+		cluster_name => $cluster_name 
+	})
 	exec { "create-rbd-image-$image":
+		require => Storage::Ceph::Pool[$pool],
 		refreshonly => true,
-		command => "/usr/sbin/cephadm shell -m $conf:/etc/ceph -- rbd create --size $size --pool $pool $image"
+		command => "/usr/sbin/cephadm shell -m /etc/$cluster_name:/etc/ceph -- rbd create --size $size --pool $pool $image"
 	}
 
 	#
 	# Add cephx authz
 	#
-	exec { "/usr/sbin/cephadm shell -m $conf:/etc/ceph -- ceph auth get-or-create client.$name mon 'allow r' osd 'allow rwx pool=$pool' > $conf/ceph.client.$name.keyring":
+	exec { "/usr/sbin/cephadm shell -m /etc/$cluster_name:/etc/ceph -- ceph auth get-or-create client.$name mon 'allow r' osd 'allow rwx pool=$pool' > /etc/$cluster_name/ceph.client.$name.keyring":
 	}
 
 	#
 	# Map rbd device on the host
 	#
-	exec { "/usr/sbin/modprobe rbd":
-	}->
-	exec { "/usr/sbin/cephadm shell -m $conf:/etc/ceph -- rbd -n client.$name -c /etc/ceph/ceph.conf -k /etc/ceph/ceph.client.$name.keyring --id $name map --pool $pool $image":
-		require => Exec["create-rbd-image-$image"],
-		refreshonly => true
-	} ->
-	exec { "/usr/sbin/mkfs.xfs /dev/rbd2":
-		refreshonly => true
-	}->
-	exec { "/usr/bin/mount /dev/rbd2 $mountpoint":
-		refreshonly => true
+	exec { "/usr/bin/ruby $scripts_path/rbdmap.rb $cluster_name $name $pool $image $mountpoint":
+		require => Exec["create-rbd-image-$image"]
 	}
 
 

@@ -19,7 +19,7 @@ define virt::podman_network (
 		podman_network_entry => {
 				'Driver' => 'macvlan',
 				'Gateway' => "192.168.$id.254",
-				'IPRange' => '192.168.$id.0/25',
+				'IPRange' => "192.168.$id.0/25",
 				'NetworkName' => "pod_ceph_$id",
 				'Options' => 'parent=br_ceph',
 				'Subnet' => "192.168.$id.0/24",

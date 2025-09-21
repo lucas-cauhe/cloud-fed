@@ -1,5 +1,5 @@
 class virt::containers {
-	$deployment_units = ['10']
+	$deployment_units = ['10', '20']
 	$iface_one_20 = "%network[:'pod_one_20'][:interface]%" 
 	$iface_one_10 = "%network[:'pod_one_10'][:interface]%" 
 	$iface_ceph_20 = "%network[:'pod_ceph_20'][:interface]%" 
@@ -27,8 +27,16 @@ class virt::containers {
 	#
 
 	$one_db_ip = {
-		'10' => "192.168.10.20",
-		'20' => "192.168.20.20"
+		'10' => {
+			'0' => "192.168.10.20",
+			'1' => "192.168.10.21",
+			'2' => "192.168.10.22",
+		},
+		'20' => {
+			'0' => "192.168.20.20",
+			'1' => "192.168.20.21",
+			'2' => "192.168.20.22",
+		}
 	}
 	$oned_services = {
 		"10" => [

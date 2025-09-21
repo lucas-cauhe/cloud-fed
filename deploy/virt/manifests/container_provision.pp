@@ -6,19 +6,20 @@ define virt::container_provision (
 ) {
 	$pwd = common::pwd()
 	$scripts_path = "$pwd/deploy/$module_name/scripts"
-	
+
 	file { "$scripts_path/$common_name.json":
 		ensure => 'file',
 		content => epp('virt/container_provision', {
 			'container_name' => $container_name,
-			'plan' 		 => $plan
-		}) 
+			'plan' 		 => $plan,
+			'magic'	         => $name
+		})
 	}
-	exec { $common_name:
+	ensure_resource ('exec', $common_name, {
+		require => File["$scripts_path/$common_name.json"],
 		path => "/usr/bin",
-		command => "ruby $scripts_path/container_provision.rb $scripts_path/$common_name.json",
+		command => "ruby $scripts_path/container_provision.rb $scripts_path/$common_name.json $name",
 		logoutput => true,
-		refreshonly => true,
-		subscribe   => File["$scripts_path/$common_name.json"],
-	} 
+        timeout => 0
+	})
 }

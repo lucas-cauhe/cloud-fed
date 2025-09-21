@@ -10,6 +10,7 @@ define virt::services::opennebula::oned (
 	# pasar a root y oneadmin la clave de /var/lib/one/.ssh/id_rsa.pub como root
 	$env = $facts['env_vars']
 	$imageName = "almalinux_oned"
+    $deploy_id = split($oned[hostname], '_')[1]
 	if $fed_id == "10" {
 		$connect_to_internet = [
 			"ip route add default via 192.168.10.254 dev $virt::containers::vlan_iface_one_10"
@@ -31,9 +32,9 @@ define virt::services::opennebula::oned (
 
 	$db_config = @(END)
 DB = [  BACKEND = "mysql",
-		SERVER  = %deployment[:virt][:services]["one_db"][:network][:"pod_one_<%= $id %>"][:ipaddress]%,
+		SERVER  = %deployment[:virt][:services]["one-db-<%= $deploy_id %>"][:network][:"pod_one_<%= $id %>"][:ipaddress]%,
 		PORT    = 0,
-		USER    = "oneadmin_<%= $id %>", 
+		USER    = "oneadmin_<%= $id %>",
 		PASSWD  = "<%= $passwd %>",
 		DB_NAME = "<%= $db_name %>",
 		CONNECTIONS = 25,
@@ -52,13 +53,16 @@ DB = [  BACKEND = "mysql",
 	    ARGUMENTS = "follower %network[:"pod_one_<%= $id %>"][:interface]% <%= $virtual_ip %>/24"
 	]
 	| - END
-	
+
 	ensure_resource('Virt::Container_file', $imageName, {
-		from => 'docker.io/library/almalinux:9',	
+		from => 'docker.io/library/almalinux:9',
 		cp => [
 			"./opennebula.repo /etc/yum.repos.d/opennebula.repo"
 		],
 		run => [
+		#
+		# Opennebula installation
+		#
 			"dnf update -y && dnf install -y sudo net-tools iproute 'dnf-command(config-manager)'",
 			"dnf config-manager --set-enabled crb",
 			"dnf clean all",
@@ -67,7 +71,14 @@ DB = [  BACKEND = "mysql",
 			"dnf makecache",
 			"groupadd sudo",
 			"dnf -y install mariadb opennebula",
-			"usermod -a -G sudo oneadmin"
+			"usermod -a -G sudo oneadmin",
+		#
+		# Ceph tools installation
+		#
+			"curl --silent --remote-name https://download.ceph.com/rpm-reef/el9/noarch/cephadm",
+			"chmod +x cephadm",
+			"./cephadm add-repo --version 19.2.2", # se fija la versión por problema openssl v3.4
+			"./cephadm install ceph-common"
 		]
 	})
 	virt::podman_unit { "${oned[hostname]}.container":
@@ -79,9 +90,9 @@ DB = [  BACKEND = "mysql",
 			container_entry => {
 				'AddCapability' => 'NET_ADMIN NET_RAW IPC_LOCK',
 				'ContainerName' => $oned[hostname],
-				'Image' => $imageName, 
+				'Image' => $imageName,
 				'Network' => "pod_one_$fed_id",
-				'Exec' => 'sleep infinity', 
+				'Exec' => 'sleep infinity',
 				'IP' => $oned[ipaddress],
 				'Label' => '\"one\"',
 				'HostName' => $oned[hostname]
@@ -100,12 +111,12 @@ DB = [  BACKEND = "mysql",
 			{
 				"type" => "container",
 				"actions" => [
-					"podman cp $virt::containers::scripts_path/mock_service.sh ${oned[hostname]}:/sbin/service"
+					"podman cp $virt::containers::scripts_path/mock_service.sh ${oned[hostname]}:/bin/service"
 				]
 			},
 			{
 				"type" => "guest",
-				"actions" => $guest_vlan + $connect_to_internet 
+				"actions" => $guest_vlan + $connect_to_internet
 			},
 			{
 				"type" => "guest_file",
@@ -115,7 +126,7 @@ DB = [  BACKEND = "mysql",
 						'replace' => {
 							'src' => 'DB = [ BACKEND = "sqlite",
 		       TIMEOUT = 2500 ]',
-							'dest' => inline_epp($db_config, {'passwd' => $db_passwd, 'db_name' => 'opennebula_10', 'id' => $fed_id})
+							'dest' => inline_epp($db_config, {'passwd' => $db_passwd, 'db_name' => "opennebula_$fed_id", 'id' => $fed_id, 'deploy_id' => $deploy_id})
 						}
 					},
 					{
@@ -125,7 +136,7 @@ DB = [  BACKEND = "mysql",
 					},
 					{
 						'path' => '/etc/sudoers',
-						'append' => '%sudo ALL=(ALL) NOPASSWD: ALL' 
+						'append' => '%sudo ALL=(ALL) NOPASSWD: ALL'
 					}
 				]
 			},
@@ -139,31 +150,43 @@ DB = [  BACKEND = "mysql",
 			#
 			{
 				"type" => "guest",
+				"actions" => [
+					"%reload% chmod +x /bin/service",
+					"su oneadmin - -c \"one start\"",
+				]
+			},
+			{
+				"type" => "container",
+				"actions" =>
+					[
+					"%expect[0.0.0.0:2633]% podman exec ${oned[hostname]} ss -tulpn",
+					]
+			},
+			{
+				"type" => "guest",
 				"onlyif" => $oned[role] == 'leader',
 				"actions" => [
-					"%reload% chmod +x /sbin/service",
-					"su oneadmin - -c \"one start\"",
-					"sleep 5",
 					"onezone server-add 0 --name ${oned[hostname]} --rpc http://${oned[ipaddress]}:2633/RPC2",
-					"sleep 5",
 					"one stop"
 				]
 			},
 
 			#
-			# Follower setup 
+			# Follower setup
 			#
 			{
 				"type" => "container",
 				"onlyif" => $oned[role] == 'follower',
 				"actions" => [
-					"podman exec ${leader[hostname]} onedb backup -S ${virt::containers::one_db_ip[$fed_id]} -t mysql -u oneadmin_$fed_id -p $db_passwd -d opennebula_$fed_id /var/lib/one/${oned[hostname]}.sql",
-					"podman cp ${leader[hostname]}:/var/lib/one/${oned[hostname]}.sql ${oned[hostname]}:/tmp",
+                    "podman exec ${oned[hostname]} one stop",
+					"%expect[XML-RPC server stopped]% podman exec ${oned[hostname]} cat /var/log/one/oned.log", # ensure it is stopped
+					"podman exec ${leader[hostname]} onedb backup -S ${virt::containers::one_db_ip[$fed_id][$deploy_id]} -t mysql -u oneadmin_$fed_id -p $db_passwd -d opennebula_$fed_id -f /var/lib/one/nebula_backup.sql",
+					"podman cp ${leader[hostname]}:/var/lib/one/nebula_backup.sql ${oned[hostname]}:/tmp",
 					"podman exec ${oned[hostname]} rm -rf /var/lib/one/.one",
 					"podman cp ${leader[hostname]}:/var/lib/one/.one ${oned[hostname]}:/var/lib/one",
 					"podman exec ${oned[hostname]} chown -R oneadmin:oneadmin /var/lib/one/.one",
-					"podman exec ${oned[hostname]} onedb restore -f -u oneadmin_$fed_id -p $db_passwd -d opennebula_$fed_id -S ${virt::containers::one_db_ip[$fed_id]} -t mysql /tmp/${oned[hostname]}.sql",
-					"until podman exec ${leader[hostname]} onezone show -j 0 | grep '\"STATE\": \"3\"'; do sleep 1; done", # if no leader is found the command below fails
+					"podman exec ${oned[hostname]} onedb restore -f -u oneadmin_$fed_id -p $db_passwd -d opennebula_$fed_id -S ${virt::containers::one_db_ip[$fed_id][$deploy_id]} -t mysql /tmp/nebula_backup.sql",
+					"%expect[<STATE>3</STATE>]% podman exec ${leader[hostname]} onezone show -x 0", # if no leader is found the command below fails
 					"podman exec ${leader[hostname]} onezone server-add 0 --name ${oned[hostname]} --rpc http://${oned[ipaddress]}:2633/RPC2"
 				]
 			},
@@ -175,21 +198,10 @@ DB = [  BACKEND = "mysql",
 				"type" => "guest_file",
 				"actions" => [
 					{
-						'path' => '/tmp/update_zone.one',
-						'content' => "ENDPOINT=\"http://${virt::containers::one_vip[$fed_id]}:2633/RPC2\""
-					},
-					{
 						'path' => '/etc/one/oned.conf',
 						'replace' => {
 							'src' => 'SERVER_ID     = -1',
 							'dest' => "SERVER_ID     = ${oned[id]}"
-						}
-					},
-					{
-						'path' => '/etc/one/oned.conf',
-						'replace' => {
-							'src' => 'MODE     = "STANDALONE"',
-							'dest' => "MODE     = \"$fed_mode\""
 						}
 					},
 					{
@@ -203,33 +215,23 @@ DB = [  BACKEND = "mysql",
 						'path' => '/etc/one/oned.conf',
 						'append' => inline_epp($raft_leader_hooks, {'virtual_ip' => $virt::containers::one_vip[$fed_id], 'id' => $fed_id})
 					}
-				] 
+				]
 			},
 			{
 				"type" => "guest",
 				"actions" => ["su oneadmin - -c \"one start\""]
-			}, 
-
-			# wait for server to become leader 
-			{
-				"type" => "container",
-				"actions" => 
-					["until podman exec ${leader[hostname]} onezone show -j 0 | grep '\"STATE\": \"3\"'; do sleep 1; done"
-					]
-			},
-			{	
-				"type" => "guest",
-				"onlyif" => $fed_id == '10' and $oned[role] == 'leader',
-				"actions" => ["onezone update 0 /tmp/update_zone.one", "su oneadmin - -c \"one restart\""]
 			},
 
-			# wait for server to become available
+			# wait for server to become available & there is a leader
 			{
 				"type" => "container",
-				"actions" => 
-					["until podman exec ${leader[hostname]} onezone show -j 0 | grep '\"STATE\": \"3\"'; do sleep 1; done"
+				"actions" =>
+					[
+					"%expect[0.0.0.0:2633]% podman exec ${leader[hostname]} ss -tulpn",
+					"%expect[<STATE>3</STATE>]% podman exec ${leader[hostname]} onezone show -x 0"
 					]
 			},
+
 
 
 			#
@@ -241,11 +243,11 @@ DB = [  BACKEND = "mysql",
 					"podman cp ${oned[hostname]}:/var/lib/one/.ssh/id_rsa.pub /var/lib/one/id_rsa.pub",
 					"cat /var/lib/one/id_rsa.pub >> /var/lib/one/.ssh/authorized_keys",
 					"rm /var/lib/one/id_rsa.pub"
-				], 
+				],
 			},
 
 			#
-			# Distribute ssh key to frontal 
+			# Distribute ssh key to frontal
 			#
 			{
 				"type" => "container",
@@ -255,7 +257,7 @@ DB = [  BACKEND = "mysql",
 					"podman cp /var/lib/one/authorized_keys ${oned[hostname]}:/var/lib/one/.ssh/authorized_keys ",
 					"podman exec ${oned[hostname]} chown oneadmin:oneadmin /var/lib/one/.ssh/authorized_keys",
 					"rm /var/lib/one/authorized_keys"
-				], 
+				],
 			},
 
 			#
@@ -271,19 +273,6 @@ DB = [  BACKEND = "mysql",
 			# Ceph definition
 			#
 
-			#
-			# Install ceph tools 
-			#
-			{
-				"type" => "guest",
-				"actions" => [
-					"curl --silent --remote-name https://download.ceph.com/rpm-reef/el9/noarch/cephadm",
-					"chmod +x cephadm",
-					"cp cephadm /usr/bin",
-					"cephadm add-repo --version 19.2.2", # se fija la versión por problema openssl v3.4
-					"cephadm install ceph-common"
-				] 
-			},
 			{
 				"type" => "guest_file",
 				"actions" => [
@@ -296,7 +285,7 @@ DB = [  BACKEND = "mysql",
 									'mon_host' => $storage::ceph::vars::network[$fed_id][mon][0][ipaddress],
 									'rbd_default_format' => 2
 								}
-							}	
+							}
 						})
 					}
 				]
