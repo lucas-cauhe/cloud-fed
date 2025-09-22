@@ -1,31 +1,33 @@
 define virt::services::opennebula::db (
-	String $id
+    String $fed_id,
+	String $server_name
 ) {
 	# Container declaration
 
 	$env = $facts['env_vars']
-	$container_name = "one-db-$id"
+    $id = split($server_name, '_')[1]
+	$container_name = "one-db-$id-$fed_id"
 	$mountpoint = "/opt/$container_name"
 
 
 	$sql_query_base = "mariadb -u root -p${env['MARIADB_ROOT_PASSWD']} -e \""
 	$sql_query_end = ";\""
+    $db_pass = $env['MARIADB_ONE_PASSWD']
 
-	$db_pass_10 = $env['MARIADB_ONE_10_PASSWD']
-	$db_pass_20 = $env['MARIADB_ONE_20_PASSWD']
+    if $fed_id == '10' {
+        $guest_vlan = $virt::containers::guest_vlan_one_10
+    } else {
+        $guest_vlan = $virt::containers::guest_vlan_one_20
+    }
 
 	$db_setup = [
-		"$sql_query_base DROP DATABASE IF EXISTS opennebula_10$sql_query_end",
-		"$sql_query_base DROP DATABASE IF EXISTS opennebula_20$sql_query_end",
+		"$sql_query_base DROP DATABASE IF EXISTS opennebula$sql_query_end",
 
-		"$sql_query_base CREATE USER IF NOT EXISTS oneadmin_10@'192.168.10.%' IDENTIFIED BY '$db_pass_10'$sql_query_end",
-		"$sql_query_base CREATE USER IF NOT EXISTS oneadmin_20@'192.168.20.%' IDENTIFIED BY '$db_pass_20'$sql_query_end",
+		"$sql_query_base CREATE USER IF NOT EXISTS oneadmin@'192.168.$fed_id.%' IDENTIFIED BY '$db_pass'$sql_query_end",
 
-		"$sql_query_base CREATE DATABASE opennebula_10$sql_query_end",
-		"$sql_query_base CREATE DATABASE opennebula_20$sql_query_end",
+		"$sql_query_base CREATE DATABASE opennebula$sql_query_end",
 
-		"$sql_query_base GRANT ALL PRIVILEGES ON opennebula_10.* TO 'oneadmin_10'@'192.168.10.%'$sql_query_end",
-		"$sql_query_base GRANT ALL PRIVILEGES ON opennebula_20.* TO 'oneadmin_20'@'192.168.20.%'$sql_query_end",
+		"$sql_query_base GRANT ALL PRIVILEGES ON opennebula.* TO 'oneadmin'@'192.168.$fed_id.%'$sql_query_end",
 
 		"$sql_query_base SET GLOBAL TRANSACTION ISOLATION LEVEL READ COMMITTED$sql_query_end"
 	]
@@ -41,8 +43,8 @@ define virt::services::opennebula::db (
 		group => "systemd-journal"
 	} ->
 	storage::ceph::rbd { $container_name:
-		cluster_name => 'ceph-10',
-		pool => "one-db",
+		cluster_name => "ceph-$fed_id",
+		pool => "one-db-$fed_id",
 		image => "db-$id",
 		size => "2G",
 		mountpoint => $mountpoint,
@@ -50,14 +52,14 @@ define virt::services::opennebula::db (
 	virt::podman_unit { "$container_name.container":
 		args => {
 			unit_entry => {
-				'Description' => "one_db $id container"
+				'Description' => "one_db $id-$fed_id container"
 			},
 			container_entry => {
 				'AddCapability' => 'NET_ADMIN',
 				'ContainerName' => $container_name,
 				'Image' => 'docker.io/library/mariadb:latest',
-				'Network' => "pod_one_10",
-				'IP' => $virt::containers::one_db_ip['10'][$id],
+				'Network' => "pod_one_$fed_id",
+				'IP' => $virt::containers::one_db_ip[$fed_id][$id],
 				'Environment' => ["MARIADB_ROOT_PASSWORD=${env['MARIADB_ROOT_PASSWD']}"],
 				'Volume' => "$mountpoint:/var/lib/mysql"
 			},
@@ -76,13 +78,12 @@ define virt::services::opennebula::db (
 				"type" => "container",
 				"actions" => [
 					 # wait for mariadb to be ready
-					"%expect[ready for connections]% podman logs $container_name 2>&1",
-					"podman network connect --ip ${virt::containers::one_db_ip['20'][$id]} pod_one_20 $container_name"
+					"%expect[0.0.0.0:3306]% podman exec $container_name ss -tulpn",
 				]
 			},
 			{
 				"type" => "guest",
-				"actions" => $virt::containers::guest_vlan_one_10 + $virt::containers::guest_vlan_one_20 + $db_setup
+				"actions" => $guest_vlan + $db_setup
 			}
 		]
 	}

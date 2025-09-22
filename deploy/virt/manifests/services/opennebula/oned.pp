@@ -2,7 +2,10 @@ define virt::services::opennebula::oned (
 	Array[Hash] $kvm_nodes = [{'hostname' => 'node1', 'ipaddress' => '10.0.13.71'}],
 	Hash $leader,
 	Hash $oned,
-	String $fed_id
+	String $fed_id,
+    String $zone_id,
+    Boolean $ha = true,
+    Optional[String] $master_ip = undef,
 ){
 	# Container declaration
 
@@ -11,48 +14,30 @@ define virt::services::opennebula::oned (
 	$env = $facts['env_vars']
 	$imageName = "almalinux_oned"
     $deploy_id = split($oned[hostname], '_')[1]
+    $db_passwd = $env['MARIADB_ONE_PASSWD']
 	if $fed_id == "10" {
 		$connect_to_internet = [
 			"ip route add default via 192.168.10.254 dev $virt::containers::vlan_iface_one_10"
 		]
-		$db_passwd = $env['MARIADB_ONE_10_PASSWD']
 		$guest_vlan = $virt::containers::guest_vlan_one_10
 	} else {
 		$connect_to_internet = [
 			"ip route add default via 192.168.20.254 dev $virt::containers::vlan_iface_one_20"
 		]
-		$db_passwd = $env['MARIADB_ONE_20_PASSWD']
 		$guest_vlan = $virt::containers::guest_vlan_one_20
-	}
-
-	$fed_mode = $fed_id ? {
-		'10' => "MASTER",
-		default => "SLAVE"
 	}
 
 	$db_config = @(END)
 DB = [  BACKEND = "mysql",
-		SERVER  = %deployment[:virt][:services]["one-db-<%= $deploy_id %>"][:network][:"pod_one_<%= $id %>"][:ipaddress]%,
+		SERVER  = <%= $ipaddress %>,
 		PORT    = 0,
-		USER    = "oneadmin_<%= $id %>",
+		USER    = "oneadmin",
 		PASSWD  = "<%= $passwd %>",
-		DB_NAME = "<%= $db_name %>",
+		DB_NAME = "opennebula",
 		CONNECTIONS = 25,
 		COMPARE_BINARY = "no" ]
 	| - END
 
-	$raft_leader_hooks = @(END)
-	RAFT_LEADER_HOOK = [
-	     COMMAND = "raft/vip.sh",
-	     ARGUMENTS = "leader %network[:"pod_one_<%= $id %>"][:interface]% <%= $virtual_ip %>/24"
-	]
-
-	# Executed when a server transits from leader->follower
-	RAFT_FOLLOWER_HOOK = [
-	    COMMAND = "raft/vip.sh",
-	    ARGUMENTS = "follower %network[:"pod_one_<%= $id %>"][:interface]% <%= $virtual_ip %>/24"
-	]
-	| - END
 
 	ensure_resource('Virt::Container_file', $imageName, {
 		from => 'docker.io/library/almalinux:9',
@@ -126,12 +111,12 @@ DB = [  BACKEND = "mysql",
 						'replace' => {
 							'src' => 'DB = [ BACKEND = "sqlite",
 		       TIMEOUT = 2500 ]',
-							'dest' => inline_epp($db_config, {'passwd' => $db_passwd, 'db_name' => "opennebula_$fed_id", 'id' => $fed_id, 'deploy_id' => $deploy_id})
+							'dest' => inline_epp($db_config, {'passwd' => $db_passwd, 'ipaddress' => $virt::containers::one_db_ip[$fed_id][$deploy_id]})
 						}
 					},
 					{
 						'path' => '/var/lib/one/.one/one_auth',
-						'content' => "oneadmin:oneadmin_$fed_id",
+						'content' => "oneadmin:oneadmin",
 						'owner' => 'oneadmin:oneadmin'
 					},
 					{
@@ -164,9 +149,9 @@ DB = [  BACKEND = "mysql",
 			},
 			{
 				"type" => "guest",
-				"onlyif" => $oned[role] == 'leader',
+				"onlyif" => $ha and $oned[role] == 'leader',
 				"actions" => [
-					"onezone server-add 0 --name ${oned[hostname]} --rpc http://${oned[ipaddress]}:2633/RPC2",
+					"onezone server-add $zone_id --name ${oned[hostname]} --rpc http://${oned[ipaddress]}:2633/RPC2",
 					"one stop"
 				]
 			},
@@ -176,18 +161,18 @@ DB = [  BACKEND = "mysql",
 			#
 			{
 				"type" => "container",
-				"onlyif" => $oned[role] == 'follower',
+				"onlyif" => $ha and $oned[role] == 'follower',
 				"actions" => [
                     "podman exec ${oned[hostname]} one stop",
 					"%expect[XML-RPC server stopped]% podman exec ${oned[hostname]} cat /var/log/one/oned.log", # ensure it is stopped
-					"podman exec ${leader[hostname]} onedb backup -S ${virt::containers::one_db_ip[$fed_id][$deploy_id]} -t mysql -u oneadmin_$fed_id -p $db_passwd -d opennebula_$fed_id -f /var/lib/one/nebula_backup.sql",
+					"podman exec ${leader[hostname]} onedb backup -S ${virt::containers::one_db_ip[$fed_id][$deploy_id]} -t mysql -u oneadmin -p $db_passwd -d opennebula -f /var/lib/one/nebula_backup.sql",
 					"podman cp ${leader[hostname]}:/var/lib/one/nebula_backup.sql ${oned[hostname]}:/tmp",
 					"podman exec ${oned[hostname]} rm -rf /var/lib/one/.one",
 					"podman cp ${leader[hostname]}:/var/lib/one/.one ${oned[hostname]}:/var/lib/one",
 					"podman exec ${oned[hostname]} chown -R oneadmin:oneadmin /var/lib/one/.one",
-					"podman exec ${oned[hostname]} onedb restore -f -u oneadmin_$fed_id -p $db_passwd -d opennebula_$fed_id -S ${virt::containers::one_db_ip[$fed_id][$deploy_id]} -t mysql /tmp/nebula_backup.sql",
-					"%expect[<STATE>3</STATE>]% podman exec ${leader[hostname]} onezone show -x 0", # if no leader is found the command below fails
-					"podman exec ${leader[hostname]} onezone server-add 0 --name ${oned[hostname]} --rpc http://${oned[ipaddress]}:2633/RPC2"
+					"podman exec ${oned[hostname]} onedb restore -f -u oneadmin -p $db_passwd -d opennebula -S ${virt::containers::one_db_ip[$fed_id][$deploy_id]} -t mysql /tmp/nebula_backup.sql",
+					"%expect[<STATE>3</STATE>]% podman exec ${leader[hostname]} onezone show -x $zone_id", # if no leader is found the command below fails
+					"podman exec ${leader[hostname]} onezone server-add $zone_id --name ${oned[hostname]} --rpc http://${oned[ipaddress]}:2633/RPC2"
 				]
 			},
 
@@ -196,6 +181,7 @@ DB = [  BACKEND = "mysql",
 			#
 			{
 				"type" => "guest_file",
+                "onlyif" => $ha,
 				"actions" => [
 					{
 						'path' => '/etc/one/oned.conf',
@@ -213,22 +199,55 @@ DB = [  BACKEND = "mysql",
 					},
 					{
 						'path' => '/etc/one/oned.conf',
-						'append' => inline_epp($raft_leader_hooks, {'virtual_ip' => $virt::containers::one_vip[$fed_id], 'id' => $fed_id})
+						'append' => inline_epp($virt::containers::raft_leader_hooks, {'virtual_ip' => $virt::containers::one_vip[$fed_id], 'id' => $fed_id})
 					}
 				]
 			},
+
+            #
+            # Add additional config if in slave zone
+            #
+            {
+				"type" => "guest_file",
+                "onlyif" => $zone_id != undef and $master_ip != undef,
+				"actions" => [
+					{
+						'path' => '/etc/one/oned.conf',
+						'replace' => {
+                            'src' => "\"STANDALONE\"",
+                            'dest' => "\"SLAVE\""
+						}
+					},
+                    {
+                        'path' => '/etc/one/oned.conf',
+                        'replace' => {
+                            'src' => "ZONE_ID       = 0",
+                            'dest' => "ZONE_ID       = $zone_id"
+                        }
+                    },
+                    {
+                        'path' => '/etc/one/oned.conf',
+                        'replace' => {
+                            'src' => "MASTER_ONED   = \"\"",
+                            'dest' => "MASTER_ONED   = \"http://$master_ip:2633/RPC2\""
+                        }
+                    },
+                ]
+			},
 			{
 				"type" => "guest",
+                "onlyif" => $ha,
 				"actions" => ["su oneadmin - -c \"one start\""]
 			},
 
 			# wait for server to become available & there is a leader
 			{
 				"type" => "container",
+                "onlyif" => $ha,
 				"actions" =>
 					[
 					"%expect[0.0.0.0:2633]% podman exec ${leader[hostname]} ss -tulpn",
-					"%expect[<STATE>3</STATE>]% podman exec ${leader[hostname]} onezone show -x 0"
+					"%expect[<STATE>3</STATE>]% podman exec ${leader[hostname]} onezone show -x $zone_id"
 					]
 			},
 

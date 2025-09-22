@@ -2,10 +2,21 @@
 require 'open3'
 require 'json'
 
+stop_pattern = ARGV[0]
+
+stop_one = false
+stop_all = true
+
+if stop_pattern == "one"
+  stop_one = true
+  stop_all = false
+end
+
+
 def show_error(output, status)
   if output && status && status != 0
     puts "ERROR happened: #{output} with status #{status}"
-    return false 
+    return false
   end
   return true
 end
@@ -18,31 +29,35 @@ end
 
 def unmap_rbd(cluster_id)
   raw_mappings = run_command("rbd -c /etc/ceph-#{cluster_id}/ceph.conf -k /etc/ceph-#{cluster_id}/ceph.client.admin.keyring showmapped --format json")
-
   mappings = JSON.parse(raw_mappings)
+
   mappings.each do |mapping|
+  #
+  # Umount used mountpoints
+  #
+    mountpoint = run_command("findmnt --source #{mapping["device"]} -o TARGET | tail -n1").strip
+    _ = run_command("umount #{mountpoint}")
+
+    #
+    # Unmap device
+    #
     _ = run_command("rbd -c /etc/ceph-#{cluster_id}/ceph.conf -k /etc/ceph-#{cluster_id}/ceph.client.admin.keyring unmap #{mapping["device"]}")
   end
 
 end
 
-# Clean the deployed infrastructure
-
-# Remove opennebula containers (depends on ceph)
-_ = run_command("podman stop --time 1 one-db-0", skip=true)
-_ = run_command("podman stop --time 1 one-db-1", skip=true)
-_ = run_command("podman stop --time 1 one-db-2", skip=true)
-
-#
-# Clean used mountpoints
-#
-used_mountpoints = ['/opt/one-db-0', '/opt/one-db-1', '/opt/one-db-2']
-used_mountpoints.each do |mp|
-  out = run_command("findmnt #{mp}")
-  if out != "" 
-    _ = run_command("umount #{mp}")
+def stop_containers(pattern)
+  all_containers = JSON.parse(run_command("podman ps --format json", skip=true))
+  db_containers = all_containers.inject([]) {|prev, ctr| if ctr["Names"][0].include?(pattern) then prev.append(ctr["Names"][0]) else prev end}
+  if db_containers.length > 0
+    _ = run_command("podman stop --time 1 #{db_containers.join(' ')}")
   end
 end
+
+# Clean the deployed infrastructure
+
+# Remove db containers (depends on ceph)
+stop_containers("one-db")
 
 #
 # Delete rbd mappings
@@ -50,10 +65,13 @@ end
 unmap_rbd(10)
 unmap_rbd(20)
 
+
 #
 # Stop running containers
 #
-run_command("podman stop --time 1 -a")
+stop_containers("oned") if stop_one
+run_command("podman stop --time 1 -a") if stop_all
+
 
 #
 # Delete all container systemd files to ensure recreation
