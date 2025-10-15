@@ -1,0 +1,16 @@
+{
+    "input": {
+        "context": {
+                "user_did": "did:abcdef",
+                "username": "paquito",
+                "federation_entity": "entity2",
+                "host": "did:asdf",
+                "presentation": "did: asdfdfsa"
+            },
+            "action": {
+                "type": "one.vm.allocate",
+                "resource_name": "entity2-paquito-mivm"
+            }
+
+        }
+}

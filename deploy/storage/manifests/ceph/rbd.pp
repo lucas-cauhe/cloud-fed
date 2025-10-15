@@ -13,7 +13,7 @@ define storage::ceph::rbd (
 	#
 	ensure_resource('storage::ceph::pool', $pool, {
 		pg_autoscale => 'on',
-		pg_num => 128,
+		pg_num => "128",
 		cluster_name => $cluster_name
 	})
 	exec { "create-rbd-image-$cluster_name-$image":

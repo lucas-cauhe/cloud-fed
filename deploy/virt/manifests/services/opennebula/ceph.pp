@@ -12,10 +12,10 @@ define virt::services::opennebula::ceph(
 	# Create `one` pool
 	#
 	storage::ceph::pool { "one-$fed_id":
-		type => 'replicated',	
-		pg_num => 128,
+		type => 'replicated',
+		pg_num => "128",
 		pg_autoscale => 'on',
-		cluster_name => $cluster_name 
+		cluster_name => $cluster_name
 	}
 
 	#
@@ -55,12 +55,12 @@ define virt::services::opennebula::ceph(
 		exec { "$fnode-libvirt-keyring-$fed_id":
 			require => Exec["libvirt-keyring-$fed_id"],
 			command => "/usr/bin/podman cp /etc/$cluster_name/ceph.client.libvirt-$fed_id.keyring $fnode:/etc/ceph"
-		}->	
+		}->
 		exec { "/usr/bin/podman exec $fnode chown oneadmin:oneadmin /etc/ceph/ceph.client.libvirt-$fed_id.keyring":
 		}
 	}
 
-	$libvirt_secret = storage::uuid() 
+	$libvirt_secret = storage::uuid()
 	#
 	# Datastores setup
 	#
@@ -115,7 +115,7 @@ define virt::services::opennebula::ceph(
 	})
 
 	#
-	# Define libvirt secret in qemu 
+	# Define libvirt secret in qemu
 	#
 	$secret_xml = @(END)
 	<secret ephemeral='no' private='no'>
@@ -129,15 +129,17 @@ define virt::services::opennebula::ceph(
 		content => inline_epp($secret_xml, {'secret' => $libvirt_secret, 'fed_id' => $fed_id}),
 		ensure => 'present'
 	}
-	exec { "remove-secrets-$fed_id": 
+	exec { "remove-secrets-$fed_id":
 		command => "/usr/bin/virsh -c qemu:///system secret-undefine --secret \"\$(/usr/bin/virsh -c qemu:///system secret-list | /usr/bin/awk '/ceph client.libvirt-$fed_id secret/ {print \$1}')\"",
-		require => File["/tmp/libvirt_secret_$fed_id.xml"], 
+		require => File["/tmp/libvirt_secret_$fed_id.xml"],
 		refreshonly => true,
-		onlyif => "/usr/bin/virsh -c qemu:///system secret-list | grep \"ceph client.libvirt-10 secret\""
+		onlyif => "/usr/bin/virsh -c qemu:///system secret-list | grep \"ceph client.libvirt-$fed_id secret\""
 	}
 	exec { "/usr/bin/virsh -c qemu:///system secret-define /tmp/libvirt_secret_$fed_id.xml":
-		require => Exec["remove-secrets-$fed_id"],
+		require => [Exec["remove-secrets-$fed_id"], Exec["libvirt-key-$fed_id"], Exec["libvirt-keyring-$fed_id"]],
+		refreshonly => true,
 	}->
 	exec { "/usr/bin/virsh -c qemu:///system secret-set-value --secret $libvirt_secret --base64 \$(/usr/bin/cat /etc/$cluster_name/client.libvirt-$fed_id.key)":
+		refreshonly => true,
 	}
 }

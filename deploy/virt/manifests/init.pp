@@ -72,4 +72,15 @@ class virt {
         zone_id => '100',
         master => '10'
     }
+
+    #
+    # Deploy Backup services
+    #
+	$virt::containers::deployment_units.each |$id| {
+        virt::services::opennebula::backup { "backup-$id":
+            require => Virt::Services::Opennebula["slave-followers"],
+            cluster_name => "ceph-$id",
+            user_name    => "backup"
+        }
+    }
 }
