@@ -74,13 +74,26 @@ class virt {
     }
 
     #
-    # Deploy Backup services
+    # Deploy Cephfs for backup and OPA
     #
 	$virt::containers::deployment_units.each |$id| {
-        virt::services::opennebula::backup { "backup-$id":
+        storage::ceph::newfs { "backup-$id":
             require => Virt::Services::Opennebula["slave-followers"],
             cluster_name => "ceph-$id",
             user_name    => "backup"
         }
+        storage::ceph::newfs { "policies-$id":
+            require => Virt::Services::Opennebula["slave-followers"],
+            cluster_name => "ceph-$id",
+            user_name    => "policies"
+        }
+    }
+
+    #
+    # Increase last_oid column to prevent libvirt ids collisions
+    #
+    exec { "/usr/bin/podman exec one-db-0-20 mariadb -u root -proot -D opennebula -e \"UPDATE pool_control SET last_oid=100 WHERE tablename='vm_pool';\"":
+        require => Virt::Services::Opennebula["slave-followers"],
+        refreshonly => true
     }
 }

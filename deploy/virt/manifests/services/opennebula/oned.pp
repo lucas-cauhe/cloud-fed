@@ -115,6 +115,13 @@ DB = [  BACKEND = "mysql",
 						}
 					},
 					{
+						'path' => '/etc/one/oned.conf',
+						'replace' => {
+							'src' => 'VM_RESTRICTED_ATTR = "RAW/DATA"',
+							'dest' => '#VM_RESTRICTED_ATTR = "RAW/DATA"',
+						}
+					},
+					{
 						'path' => '/var/lib/one/.one/one_auth',
 						'content' => "oneadmin:oneadmin",
 						'owner' => 'oneadmin:oneadmin'

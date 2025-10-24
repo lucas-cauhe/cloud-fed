@@ -17,7 +17,8 @@ define storage::ceph::pool (
     #
     if $type == 'erasure' {
         $profile_values = join($ecpool_opts.map  |$k, $v| { "$k=$v" }, " ")
-        exec { "/usr/sbin/cephadm shell -m /etc/$cluster_name_:/etc/ceph -- ceph osd erasure-code-profile set ecprofile $profile_values":
+        exec { "erasure-profile-$cluster_name-$name":
+            command => "/usr/sbin/cephadm shell -m /etc/$cluster_name_:/etc/ceph -- ceph osd erasure-code-profile set ecprofile $profile_values"
         }->
         exec { "create-$cluster_name-$name-pool":
             command => "/usr/sbin/cephadm shell -m /etc/$cluster_name_:/etc/ceph -- ceph osd pool create $name $pg_num_ $type ecprofile --autoscale-mode=$pg_autoscale"

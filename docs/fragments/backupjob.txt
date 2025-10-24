@@ -1,0 +1,19 @@
+ NAME = "Servicios básicos"
+
+ BACKUP_VMS   = "0, 1, 2"
+ DATASTORE_ID = 102
+
+ FS_FREEZE = "SUSPEND"
+ KEEP_LAST = "4"
+ MODE      = "INCREMENT"
+
+ PRIORITY  = 90 # prioridad alta
+ EXECUTION = "SEQUENTIAL" # requerido por Restic
+
+ SCHED_ACTION = [
+     REPEAT="0", # repetir cada semana
+     DAYS="1,5", # lunes, miércoles y viernes
+     END_TYPE="0", # tarea permanente
+     TIME="18000" ] # 5 AM
+
+

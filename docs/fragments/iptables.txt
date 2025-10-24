@@ -1,0 +1,6 @@
+iptables -t nat -A POSTROUTING -o %network[:podman][:interface]% -j MASQUERADE
+iptables -t nat -A POSTROUTING -o $virt::containers::iface_one_10 -j MASQUERADE
+iptables -t nat -A POSTROUTING -o $virt::containers::iface_one_20 -j MASQUERADE
+iptables -A FORWARD -i $virt::containers::iface_one_10 -o $virt::containers::iface_one_20 -j ACCEPT
+iptables -A FORWARD -i $virt::containers::iface_one_20 -o $virt::containers::iface_one_10 -j ACCEPT
+iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
