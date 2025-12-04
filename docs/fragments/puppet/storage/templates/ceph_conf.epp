@@ -1,0 +1,13 @@
+<%- | Hash $config | -%>
+# Config generated with Puppet
+<% $config.each |$field, $field_config| { -%>
+[<%= $field %>]
+<% $field_config.each |$atr, $atr_v| { -%>
+<% if $atr_v =~ Array { -%>
+<%= $atr %> = <%= join($atr_v, ",") %>
+<%- } else { -%>
+<%= $atr %> = <%= $atr_v %>
+<% } -%>
+<% } -%>
+
+<% } -%>

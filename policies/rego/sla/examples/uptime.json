@@ -1,0 +1,17 @@
+{
+    "input": {
+        "context": {
+                "username": "user10",
+                "federation_entity": "one-10",
+                "vm_name": "one-10/user10/myvm",
+                "label": "prod",
+                "host": "kvm-host0"
+            },
+            "action": {
+                "type": "one.image.allocate",
+                "resource_name": "one-10/user10/Ubuntu",
+                "labels": ["one-10/prod"]
+            }
+
+        }
+}

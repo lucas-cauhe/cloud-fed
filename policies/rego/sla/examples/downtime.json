@@ -1,0 +1,16 @@
+{
+    "input": {
+        "context": {
+                "username": "user10",
+                "federation_entity": "one-10",
+                "vm_name": "one-10/user10/myvm",
+                "label": "prod",
+                "host": "kvm-host0"
+            },
+        "action": {
+            "type": "service downtime",
+            "vm_state": "ACTIVE",
+            "lcm_state": "ACTIVE"
+        }
+    }
+}

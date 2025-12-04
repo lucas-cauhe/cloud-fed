@@ -1,0 +1,25 @@
+groups:
+  - name: OneVM
+    rules:
+      - alert: UptimeBelowPolicy
+        expr: (
+          sum_over_time(opennebula_vm_lcm_state == 3[30d])
+          / count_over_time(opennebula_vm_lcm_state[30d])
+        ) < 0.99
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Uptime bajo para {{ $labels.service }}"
+          description: "El servicio {{ $labels.service }} tiene un uptime inferior al 99% en los últimos 30 días."
+      - alert: DowntimeAbovePolicy
+        expr: (
+          opennebula_vm_state == 8 or opennebula_vm_lcm_state != 3
+        )
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Downtime elevado para {{ $labels.service }}"
+          description: "El servicio {{ $labels.service }} tiene un downtime superior al acordado."
+

@@ -1,0 +1,20 @@
+<%- |   String $from,
+        Array[String] $run,
+	Array[String] $cmd,
+	Array[String] $cp
+| -%>
+
+FROM <%= $from %>
+
+<% $cp.each |$copier| { -%>
+
+COPY <%= $copier %>
+
+<% } -%>
+<% $run.each |$runner| { -%>
+
+RUN <%= $runner %>
+
+<% } -%>
+
+CMD [<%= $cmd.map |$cmd_entry| { "\"#{$cmd_entry}\"" }.join(',')  %>]

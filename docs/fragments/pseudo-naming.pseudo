@@ -1,0 +1,13 @@
+Desplegar_recurso := FALSO
+Tipo_recurso <- Entrada.accion
+Nombre_crudo <- Entrada.nombre_recurso
+Entidad, Nombre_usuario, Nombre_recurso <- LLAMAR Separar_cadena para "/" Nombre_crudo
+
+SI Tipo_recurso == "VM"
+    Desplegar_recurso :=
+        Entidad == Entrada.metadatos.Nombre_entidad AND
+        Nombre_usuario == Entrada.metadatos.Nombre_usuario AND
+        Nombre_recurso CONTIENE "A-Za-z"
+FIN SI
+
+DEVOLVER Desplegar_recurso

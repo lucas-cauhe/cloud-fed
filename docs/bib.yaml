@@ -1,0 +1,91 @@
+nist:
+    type: Article
+    title:  The NIST Cloud Federation Reference Architecture
+    publisher:
+      name: National Institute of Standards and Technology
+      location: Gaithersburg, MD
+    author:
+    - Lee, C.
+    - Boh, R.
+    - Michael, M.
+    url: https://doi.org/10.6028/NIST.SP.500-332
+    date: 2020-02-01
+vc:
+    type: Article
+    title: Verifiable Credentials Data Model v2.0
+    publisher:
+      name: World Wide Web Consortium (W3C)
+    author:
+    - Sporny, M.
+    - Longley, D.
+    - Chadwick, D.
+    - Herman, I.
+    url: https://www.w3.org/TR/vc-data-model-2.0
+    date: 2025-05-15
+gaiax:
+    type: Web
+    title: "Gaia-X: A Federated Secure Data Infrastructure"
+    url: https://gaia-x.eu/about/
+xacml:
+    type: Article
+    title: eXtensible Access Control Markup Language (XACML) Version 3.0.
+    publisher:
+      name: OASIS Standard
+    editor:
+    - Rissanen, E.
+    url: http://docs.oasis-open.org/xacml/3.0/xacml-3.0-core-spec-os-en.html
+    date: 2013-01-22
+ceph:
+    type: Article
+    title: "Ceph: A Scalable, High-Performance Distributed File System"
+    publisher:
+      name: Proceedings of the 2004 ACM/IEEE Conference on Supercomputing (SC '04).
+    author:
+    - Weil, S.A.
+    - et al.
+    url: https://ceph.io/assets/pdfs/weil-ceph-osdi06.pdf
+    date: 2004
+nebula-docs:
+    type: Web
+    title: OpenNebula Documentation
+    url: https://docs.opennebula.io/6.10/
+ceph-docs:
+    type: Web
+    title: Ceph Documentation
+    url: https://docs.ceph.com/en/latest/
+opa-docs:
+    type: Web
+    title: Open Policy Agent Documentation
+    url: https://www.openpolicyagent.org/docs
+puppet-docs:
+    type: Web
+    title: Puppet Documentation
+    url: https://www.puppet.com/docs/index.html
+restic-docs:
+    type: Web
+    title: Restic Documentation
+    url: https://restic.readthedocs.io/en/stable/
+opentofu-docs:
+    type: Web
+    title: OpenTofu Documentation
+    url: https://opentofu.org/
+host-passthrough:
+    type: Web
+    title: Parámetro host-passthrough
+    url: https://forum.opennebula.io/t/cpu-host-passthrough-and-scheduling-vms/3349
+invalid-xml:
+    type: Web
+    title: Esquema XML OpenNebula.
+    url: https://forum.opennebula.io/t/one-vm-updateconf-invalid-raw-section-cannot-validate-data-with-domain-rng-schema/9866
+ceph-arch:
+    type: Web
+    title: Ceph Storage Cluster Documentation
+    url: https://docs.ceph.com/en/reef/architecture/
+radosgw-docs:
+    type: Web
+    title: Ceph Object Gateway Documentation
+    url: https://docs.ceph.com/en/latest/radosgw/#object-gateway
+cephfs:
+    type: Web
+    title: Ceph File System Documentation
+    url: https://docs.ceph.com/en/latest/cephfs/#ceph-file-system

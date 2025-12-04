@@ -16,6 +16,7 @@ type Systemd::Unit::Container = Struct[
     Optional['HostName']           => String,
     Optional['EnvironmentFile']           => String,
     Optional['Label']           => String,
-    Optional['Ulimit']           => String
+    Optional['Ulimit']           => String,
+    Optional['User']           => String
   }
 ]

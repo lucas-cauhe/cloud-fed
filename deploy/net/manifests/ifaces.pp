@@ -1,15 +1,7 @@
 # Author | Lucas Cauhé Viñao
 # Contact | lcauhe@gmail.com
-# Description | Host interfaces definition 
-
-
-
-# VLAN ip ranges
-# 10 (public zone A) -> 192.168.10.0/24
-# 11 (private zone A) -> 192.168.11.0/24
-# 20 (public zone B) -> 192.168.20.0/24
-# 21 (public zone B) -> 192.168.21.0/24
-
+# Description | Host interfaces definition
+# Path | net/manifests/infaces.pp
 
 class net::ifaces (
 	) {
@@ -28,16 +20,16 @@ class net::ifaces (
 		method => 'loopback',
 		ipaddress => '127.0.0.1',
 		netmask => '255.0.0.0',
-	} 
-	network_config { 'eno3': 
+	}
+	network_config { 'eno3':
 		ensure => 'present',
 		onboot => 'true',
 		method => 'manual',
 		options => {
 			'bridge_ports' => ['frontend']
 		}
-	} 
-	
+	}
+
 	$bridge_ifaces = ['br_one', 'br_ceph', 'br_kvm', 'br_stor']
 
 	$bridge_ifaces.each |$iface| {
@@ -46,7 +38,7 @@ class net::ifaces (
 			netdev_entry => {
 				'Name' => "${iface}",
 				'Kind' => 'bridge',
-			},	
+			},
 
 			bridge_entry => {
 				'STP' => 'yes',
@@ -71,7 +63,7 @@ class net::ifaces (
 		netdev_entry => {
 			'Name' => "frontend",
 			'Kind' => 'bridge',
-		},	
+		},
 
 		bridge_entry => {
 			'VLANFiltering' => 'yes',
@@ -87,7 +79,7 @@ class net::ifaces (
 			'Address' => "10.0.13.71/24",
 			'Gateway' => "10.0.13.254"
 		},
-	} -> 
+	} ->
 	systemd::manage_unit { "eno3.network":
 		path => '/etc/systemd/network',
 		match_entry => {
@@ -118,7 +110,7 @@ class net::ifaces (
 		if_name => 'one_kvm',
 		rev_if_name => 'kvm_one',
 		allowed_vlans => [10, 20],
-	} -> 
+	} ->
 	exec { "systemctl daemon-reload && systemctl restart systemd-networkd ":
 		path => '/usr/bin'
 	}

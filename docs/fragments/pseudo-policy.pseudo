@@ -1,0 +1,40 @@
+// Trigger
+INICIO <- Señal_periodo_monitorización || Señal_creación_recurso
+// Contactar con monitorización
+
+FUNCIÓN VALIDAR DEVUELVE BOOL
+PARAMETRO ENTRADA Datos_entrada
+PARAMETRO ENTRADA política
+
+    Resultado <- VERDADERO
+    PARA CADA regla EN política HACER
+        SI Datos_entrada no cumple regla
+            Resultado <- FALSO
+        FIN SI
+    FIN PARA
+    Devolver Resultado
+
+FIN FUNCIÓN
+
+// Haces comprobaciones de política
+Validación_exitosa <- VERDADERO
+SI EXISTE Info_recurso
+    Info_recurso <- OBTENER información del recurso por RPC XML-API
+    PARA CADA política_opennebula que afecta a Info_recurso HACER
+        Resultado_validación <- LLAMAR Validar política_opennebula para Info_recurso
+        SI Resultado_validación NO ES VERDADERO
+           Validación_exitosa <- FALSO
+        FIN SI
+    FIN PARA
+SINO
+    Métricas <- LEER endpoint_monitorización
+    PARA CADA política_monitorización
+      Resultado_validación <- LLAMAR Validar política_monitorización para Métricas
+      SI Resultado_validación NO ES VERDADERO
+       Validación_exitosa <- FALSO
+      FIN SI
+    FIN PARA
+FIN SI
+
+PERMITIR Despliegue de Info_recurso SI Validación_exitosa ES VERDADERO
+BLOQUEAR Despliegue de Info_recurso SI NO

@@ -1,0 +1,13 @@
+{
+    "input": {
+        "context": {
+                "username": "user10",
+                "federation_entity": "one-10",
+                "host": "kvm-host0"
+            },
+            "action": {
+                "type": "one.backupjob.allocate",
+                "resource_name": "one-10/90"
+            }
+        }
+}

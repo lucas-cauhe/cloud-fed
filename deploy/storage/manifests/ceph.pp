@@ -26,15 +26,15 @@ define storage::ceph (
 	#
 	exec { "/usr/bin/ip route replace 192.168.$id.0/24 via ${network[$id][network_gateway]}":
 		require => Storage::Ceph::Cephadm["cephadm-$id"]
-	} 
+	}
 
 	$hostnames = $network[$id][mon].map |$m| { $m[hostname] }
 	$batch_hostnames = $hostnames[1,-1]
-	
+
 	#
 	# Bootstrap monitor
 	#
-	storage::ceph::monitor { "${hostnames[0]}": 
+	storage::ceph::monitor { "${hostnames[0]}":
 		require => Storage::Ceph::Cephadm["cephadm-$id"],
 		bootstrap => true,
 		fsid => $fsid[$id],
@@ -43,25 +43,25 @@ define storage::ceph (
 		cluster_net => $network[$id][ceph_cluster_net],
 		cluster_name => $cluster_name[$id],
 		id => $id
-	} -> 
+	} ->
 
 
 	#
 	# Add 2 monitors to cluster
 	#
-	storage::ceph::monitor { $batch_hostnames: 
+	storage::ceph::monitor { $batch_hostnames:
 		fsid => $fsid[$id],
 		monitors => $network[$id][mon],
 		pub_net => $network[$id][ceph_public_net],
 		cluster_net => $network[$id][ceph_cluster_net],
 		cluster_name => $cluster_name[$id],
-		id => $id 
+		id => $id
 	}->
 
 	#
 	# Enable the msgr2 version protocol
 	#
-	exec { "/usr/sbin/cephadm shell -m /etc/${cluster_name[$id]}:/etc/ceph -- ceph mon enable-msgr2": 
+	exec { "/usr/sbin/cephadm shell -m /etc/${cluster_name[$id]}:/etc/ceph -- ceph mon enable-msgr2":
 	}
 
 	#
@@ -99,4 +99,28 @@ define storage::ceph (
 		cluster_name => $cluster_name[$id],
 		id => $id
 	}
+
+    #
+    # Add RGW
+    #
+    storage::ceph::rgw { "rgw-$id":
+        require => Storage::Ceph::Cephfs["myfs-$id"],
+        cluster_name => $cluster_name[$id],
+        fsid => $fsid[$id],
+        id => $id,
+        mon => $network[$id][mon][0],
+        ipaddress => $network[$id][rgw][0][ipaddress],
+        role => $id ? {
+            '10' => 'master',
+            default => 'slave'
+        },
+        rgw_options => {
+            'realm_name' => 'opennebula',
+            'zonegroup_name' => 'marketplace',
+            'zonegroup_address' => '192.168.10.95:7480',
+            'zone_name' => "one-$id",
+        }
+    }
+
+
 }

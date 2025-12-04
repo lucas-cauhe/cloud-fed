@@ -1,0 +1,18 @@
+{
+    "input": {
+        "context": {
+                "username": "user10",
+                "federation_entity": "one-10",
+                "vm_name": "one-10/user10/myvm",
+                "label": "prod",
+                "host": "kvm-host0"
+            },
+            "action": {
+                "type": "one.image.allocate",
+                "host_mem_allocation_ratio": 0.7,
+                "datastore_total_capacity": 1024,
+                "datastore_free_space": 512
+            }
+
+        }
+}

@@ -23,6 +23,14 @@ class virt {
 	}
 
     #
+    # Create s3 user
+    #
+    storage::ceph::s3_user { "nebula":
+        require => [Storage::Ceph["ceph-10"],Storage::Ceph["ceph-20"]],
+        display_name => "Nebula S3"
+    }
+
+    #
     # Deploy master zone in HA
     #
     virt::services::opennebula { "master-zone":
@@ -95,5 +103,15 @@ class virt {
     exec { "/usr/bin/podman exec one-db-0-20 mariadb -u root -proot -D opennebula -e \"UPDATE pool_control SET last_oid=100 WHERE tablename='vm_pool';\"":
         require => Virt::Services::Opennebula["slave-followers"],
         refreshonly => true
+    }
+
+    #
+    # Start monitoring service
+    #
+    $virt::containers::deployment_units.each |$id| {
+        virt::services::opennebula::monitoring { "monitoring-$id":
+            require => Virt::Services::Opennebula["slave-followers"],
+            zone_id => $id
+        }
     }
 }

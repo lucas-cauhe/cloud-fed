@@ -1,15 +1,14 @@
 {
     "input": {
         "context": {
-                "user_did": "did:abcdef",
-                "username": "paquito",
-                "federation_entity": "entity2",
-                "host": "did:asdf",
-                "presentation": "did: asdfdfsa"
+                "username": "user10",
+                "federation_entity": "one-10",
+                "host": "kvm-host0"
             },
             "action": {
                 "type": "one.vm.allocate",
-                "resource_name": "entity2-paquito-mivm"
+                "resource_name": "one-10/user10/Ubuntu",
+                "labels": ["one-10/prod"]
             }
 
         }

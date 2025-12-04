@@ -12,10 +12,10 @@ define storage::ceph::osd(
 
 	if $id == '10' {
 		$guest_vlan = $virt::containers::guest_vlan_ceph_10
-		$cluster_vlan = $virt::containers::guest_vlan_stor_10 
+		$cluster_vlan = $virt::containers::guest_vlan_stor_10
 	} else {
 		$guest_vlan = $virt::containers::guest_vlan_ceph_20
-		$cluster_vlan = $virt::containers::guest_vlan_stor_20 
+		$cluster_vlan = $virt::containers::guest_vlan_stor_20
 	}
 	ensure_resource ('package', 'xfsprogs', {
 		ensure => 'installed'
@@ -66,7 +66,7 @@ define storage::ceph::osd(
 		}
 	}->
 
-	virt::container_provision { "${name}_provision": 
+	virt::container_provision { "${name}_provision":
 		container_name => $name,
 		plan => [
 			{
@@ -81,19 +81,19 @@ define storage::ceph::osd(
 									'mon_host' => $mon[ipaddress],
 									'mon_initial_members' => $mon[hostname],
 									'public_network' => $storage::ceph::vars::network[$id][ceph_public_net],
-									'cluster_network' => $storage::ceph::vars::network[$id][ceph_cluster_net] 
+									'cluster_network' => $storage::ceph::vars::network[$id][ceph_cluster_net]
 								}
 							}
 						})
 					},
-					
+
 				]
 			},
 			{
 				"type" => "container",
 				"actions" => [
 					"podman network connect --ip $cluster_ipaddress pod_stor_$id $name"
-				] 
+				]
 			},
 			{
 				"type" => "guest",
@@ -102,11 +102,10 @@ define storage::ceph::osd(
 					"apt install udev", # needed by ceph-volume
 					join(['bash -c "ceph-osd -c /etc/ceph/', $cluster_name_, '.conf -i \$ID --mkfs --osd-data /var/lib/ceph/osd/ceph-', $name, ' --osd-uuid ', $osd_fsid, '"'], ''),
 					"chown -R ceph:ceph /var/lib/ceph/osd/ceph-$name",
-					join(['bash -c "ceph-osd -c /etc/ceph/', $cluster_name_, '.conf -i \$ID -n osd.\$ID --cluster ', $cluster_name_, ' --setuser ceph --setgroup ceph --debug_ms 10 --osd-data /var/lib/ceph/osd/ceph-', $name, '"'], ''),
-					"ping -c 10 google.com"
+					join(['bash -c "ceph-osd -c /etc/ceph/', $cluster_name_, '.conf -i \$ID -n osd.\$ID --cluster ', $cluster_name_, ' --setuser ceph --setgroup ceph --debug_ms 10 --osd-data /var/lib/ceph/osd/ceph-', $name, '"'], '')
 				]
 			}
-			
+
 		]
 	}
 }
