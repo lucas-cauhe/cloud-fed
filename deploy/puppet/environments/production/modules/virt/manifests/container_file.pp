@@ -2,7 +2,7 @@ define virt::container_file (
 	String $from = '',
 	Array[String] $run = [],
 	Array[String] $cmd = ['/bin/sh'],
-	Array[String] $cp = []
+	Array[String] $cp = [],
     String $file_templates_path = lookup('deployment_paths::file_templates'),
 ) {
 	$image_path = "$file_templates_path/Containerfile.$name"

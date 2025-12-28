@@ -1,0 +1,101 @@
+require "yaml"
+require "base64"
+
+VM_COUNT = 2
+DISK_SIZE = "20G"
+DISK_PER_VM = 5
+
+# Cargar configuración de hiera
+config_file = File.join(File.dirname(__FILE__), "hiera.yaml")
+if File.exist?(config_file)
+  settings = YAML.load_file(config_file)
+else
+  raise "Configuration file not found: #{config_file}"
+end
+
+BRIDGES = settings["net::bridges"]
+LVMS = settings["storage::lvms"]
+VG = settings["storage::vgs"]
+
+key1_pub = File.read("/tmp/id_ecdsa.k1.pub")
+key1_priv = File.read("/tmp/id_ecdsa.k1")
+key2_pub = File.read("/tmp/id_ecdsa.k2.pub")
+key2_priv = File.read("/tmp/id_ecdsa.k2")
+
+master_vagrant_keys = [
+  Base64.strict_encode64(key1_priv),
+  Base64.strict_encode64(key2_pub),
+]
+slave_vagrant_keys = [
+  Base64.strict_encode64(key2_priv),
+  Base64.strict_encode64(key1_pub),
+]
+
+vagrant_keys = [
+  master_vagrant_keys,
+  slave_vagrant_keys,
+]
+
+certs_script = <<-SCRIPT
+echo "Moving certs..."
+sudo mkdir -p /etc/puppetlabs/puppet/ssl/{certs,private_keys}
+sudo mv /tmp/ca.pem /etc/puppetlabs/puppet/ssl/certs
+sudo mv /tmp/$1.pem /etc/puppetlabs/puppet/ssl/certs
+sudo mv /tmp/pk-$1.pem /etc/puppetlabs/puppet/ssl/private_keys/$1.pem
+SCRIPT
+
+Vagrant.configure("2") do |config|
+  # Use Debian 12 box for libvirt
+  config.vm.box = "debian/bookworm64"
+  config.vm.synced_folder ".", "/vagrant", disbled: true
+
+  # Libvirt provider settings
+  config.vm.provider :libvirt do |libvirt|
+    libvirt.driver = "kvm"
+    libvirt.storage_pool_name = "virtimages"
+    libvirt.memory = 131072
+    libvirt.cpus = 2
+  end
+  # Create multiple VMs
+  (0..VM_COUNT - 1).each do |i|
+    config.vm.define "vm#{i}" do |node|
+      node.vm.hostname = "vm#{i}"
+      cert_name = "vm#{i}-cert"
+
+      # Configure network - bridge to your VLAN bridge
+      node.vm.network :public_network,
+        :dev => BRIDGES[i],
+        :mode => "bridge",
+        :type => "bridge",
+        :mac => "52:54:00:12:34:#{sprintf("%02x", i + 10)}",
+        :ip => "192.168.#{i + 1}0.250"
+
+      node.vm.provider :libvirt do |libvirt|
+        (0..DISK_PER_VM - 1).each do |idx|
+          libvirt.storage :file,
+            :size => DISK_SIZE,
+            :device => "vd#{("b".ord + idx).chr}",
+            :cache => "none"
+        end
+      end
+      # Provision with shell script to install Puppet agent
+      node.vm.provision "shell",
+        path: "vagrant_provision.sh",
+        args: "#{i} #{vagrant_keys[i].join(" ")}"
+
+      # Provision certificate files
+      node.vm.provision "file",
+                        source: "/tmp/ca.pem",
+                        destination: "/tmp/ca.pem"
+      node.vm.provision "file",
+                        source: "/tmp/#{cert_name}.pem",
+                        destination: "/tmp/#{cert_name}.pem"
+      node.vm.provision "file",
+                        source: "/tmp/pk-#{cert_name}.pem",
+                        destination: "/tmp/pk-#{cert_name}.pem"
+      node.vm.provision "shell",
+        inline: certs_script,
+        args: "#{cert_name}"
+    end
+  end
+end

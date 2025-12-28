@@ -1,0 +1,32 @@
+---
+targets:
+  - name: vm0-cert
+    uri: 192.168.121.219
+    alias: master
+    config:
+      hostname: vm0
+      transport: ssh
+      ssh:
+        user: vagrant
+        private-key: /home/cephadm/cloud-fed/deploy/init/.vagrant/machines/vm0/libvirt/private_key
+        host-key-check: false
+
+  - name: vm1-cert
+    uri: 192.168.121.94
+    config:
+      hostname: vm1
+      transport: ssh
+      ssh:
+        user: vagrant
+        private-key: /home/cephadm/cloud-fed/deploy/init/.vagrant/machines/vm1/libvirt/private_key
+        host-key-check: false
+
+groups:
+  - name: fed_deploy
+    targets:
+      - vm0-cert
+      - vm1-cert
+
+  - name: slaves
+    targets:
+      - vm1-cert

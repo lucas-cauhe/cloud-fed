@@ -1,0 +1,30 @@
+---
+virt::containers::thing: 'this is a thing from vm0'
+ipaddress: '192.168.10.250/24'
+gateway: '192.168.10.254'
+id: '10'
+opennebula:
+  ha_mode: 'ha'
+  zone_id: '0'
+  vip: '192.168.10.10'
+  prometheus_ip: '192.168.10.30'
+  bridge_list: '192.168.10.250'
+  services:
+    - id: '0'
+      hostname: oned_0_10
+      ipaddress: '192.168.10.1'
+      role: leader
+    - id: '1'
+      hostname: oned_1_10
+      ipaddress: '192.168.10.2'
+      role: follower
+    - id: '2'
+      hostname: oned_2_10
+      ipaddress: '192.168.10.3'
+      role: follower
+  db:
+    - "192.168.10.20"
+    - "192.168.10.21"
+    - "192.168.10.22"
+ceph:
+  cluster_name: 'ceph-10'

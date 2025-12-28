@@ -1,0 +1,6 @@
+---
+name: cloud_fed
+log:
+  "logs/debug.log":
+    append: false
+    level: debug

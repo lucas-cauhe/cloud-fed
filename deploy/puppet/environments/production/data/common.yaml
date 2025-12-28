@@ -1,0 +1,34 @@
+---
+virt::containers::thing: 'this is a thing'
+network::ensure_ipaddress: installed
+ceph:
+  backup:
+    username: backup
+  policies:
+    username: policies
+master_id: '10'
+slaves_ids:
+  - '20'
+deployment_paths::file_templates: "/tmp/templates"
+deployment_paths::scripts: "/tmp/scripts"
+dns_resolver: "155.210.12.9"
+opennebula:
+  db_config:
+    root_passwd: root
+    one_passwd: oneadmin
+  vip:
+    '10': '192.168.10.10'
+    '20': '192.168.20.10'
+  slave_endpoints:
+    '20': '192.168.20.1'
+  raft_leader_hooks: |
+    RAFT_LEADER_HOOK = [
+         COMMAND = "raft/vip.sh",
+         ARGUMENTS = "leader %network[:"pod_public_<%= $id %>"][:interface]% <%= $virtual_ip %>/24"
+    ]
+    # Executed when a server transits from leader->follower
+    RAFT_FOLLOWER_HOOK = [
+        COMMAND = "raft/vip.sh",
+        ARGUMENTS = "follower %network[:"pod_public_<%= $id %>"][:interface]% <%= $virtual_ip %>/24"
+    ]
+

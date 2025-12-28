@@ -1,0 +1,37 @@
+net::bridges:
+  - br_vm0
+  - br_vm1
+storage::vgs: main
+storage::lvms:
+  vm0:
+    -
+      name: osd-0-10
+      size: 20G
+    -
+      name: osd-1-10
+      size: 20G
+    -
+      name: osd-2-10
+      size: 20G
+    -
+      name: osd-3-10
+      size: 20G
+    -
+      name: osd-4-10
+      size: 20G
+  vm1:
+    -
+      name: osd-0-20
+      size: 20G
+    -
+      name: osd-1-20
+      size: 20G
+    -
+      name: osd-2-20
+      size: 20G
+    -
+      name: osd-3-20
+      size: 20G
+    -
+      name: osd-4-20
+      size: 20G
