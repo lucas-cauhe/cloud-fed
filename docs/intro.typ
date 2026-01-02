@@ -589,7 +589,7 @@ Estas interfaces tienen como entrada el tráfico de alguna de las redes descrita
 
 Este diseño permite aislar el tráfico de las máquinas virtuales a una red en un _host_, sin afectar al funcionamiento de la federación.
 Se configuran en cada nodo de virtualización y las máquinas virtuales ven una interfaz de red ethernet sin alteraciones.
-En la @net-impl puede verse la implementación de la red y en el @puppet-network[Anexo] la definición concreta.
+En la @net-impl puede verse la implementación de la red y en el @vagrant[Anexo] la definición concreta.
 
 El endpoint de cada zona conecta cada entidad de la federación y se comunican a través de sus redes de servicio.
 Esta comunicación entre endpoints se basa en una solución que permite establecer la pertenencia de una entidad a la federación (VxLAN, VPN o PKI), permitiendo la conexión a través de la red WAN y aislando la comunicación frente a terceros.
@@ -693,50 +693,43 @@ El servidor en el que se simula la infraestructura tiene dos procesadores de 16 
 
 == Implementación de la Infraestructura
 
-El despliegue está basado en contenedores _Podman_, que usan _Debian_ como sistema operativo.
-Sabiendo que el backup y el sistema de control de accesos se despliegan en máquinas virtuales, haciendo la infraestructura lo más ligera posible.
-Cada contenedor se ejecuta en modo no privilegiado, aunque se le asignan las _capabilities_ _NET\_RAW_ y _NET\_ADMIN_ que permiten modificar la red.
-Cualquier acceso a dispositivos físicos, en el caso de OSDs o asegurar la persistencia de las bases de datos, se realiza a través de volúmenes con los dispositivos previamente configurados y montados en una ruta específica en el host.
+#figure(
+  image("images/impl-infraestructura.png"),
+  caption: [ Infraestructura virtualizada ],
+  placement: auto
+) <red-simulada>
 
-Se simula el particionamiento de CPU y memoria mediante el uso de _cgroups_.
-En cada zona de _OpenNebula_, la configuración del host de virtualización refleja los recursos que tiene disponibles, siendo estos la mitad de los que ofrece el servidor para cada zona.
-Los demonios que ejecutan los exportadores de métricas están confinados en el mismo _cgroup_ que la zona para la que reportan las métricas.
-Además, cada clúster Ceph y despliegue de _OpenNebula_ están configurados en directorios diferentes, separando claves y variables de cada entidad.
+El despliegue está basado en contenedores _Podman_, que usan _Debian_ como sistema operativo, y dos máquinas virtuales que simulan cada sede geográficamente separada.
+Sabiendo que el backup y el sistema de control de accesos se despliegan en máquinas virtuales, se ha hecho la infraestructura lo más ligera posible.
+Cada contenedor se ejecuta en modo no privilegiado, aunque al _gateway_ se le asignan las _capabilities_ _NET\_RAW_ y _NET\_ADMIN_ que permiten modificar la red.
+Cualquier acceso a dispositivos físicos, en el caso de OSDs o asegurar la persistencia de las bases de datos, se realiza a través de volúmenes con los dispositivos previamente configurados y montados en una ruta específica en el host.
 
 En el @puppet_virt_deploy se muestra el despliegue que sigue la federación de _OpenNebula_. La creación de la red, seguida por el _gateway_ y los cluster Ceph, son los pilares sobre los que se despliegan los núcleos en alta disponibilidad de la zona maestra, incorporando después la zona esclava, salvando las relaciones de orden entre ellas.
 
 
 === Red <net-impl>
 
+La topología de red presentada en la @red-simulada es una adaptación de la diseñada en la @net-design al entorno de despliegue.
 
+La distinción geográfica entre sedes se consigue haciendo que el tráfico pase por el encaminador más cercano, en este caso el _gateway_.
+Para ello, cada máquina virtual, que corresponde a una sede distinta, tiene configuradas rutas para su subred local y como puerta de enlace el _gateway_.
+En el servidor físico están definidas la interfaz tipo bridge para las máquinas virtuales y la red por defecto de contenedores.
 
-#figure(
-  image("images/infra-simulada.png"),
-  caption: [ Infraestructura de red simulada ],
-  placement: auto
-) <red-simulada>
-
-La @red-simulada pretende simular la topología de red presentada en la @net-design, teniendo únicamente un servidor.
-La distinción geográfica entre sedes se consigue mediante _VLANs_, haciendo que los componentes de cada entidad tengan que pasar por el router más cercano para poder comunicarse.
-Así, las interfaces de red locales de cada contenedor están configuradas correspondientemente con la _VLAN_ a la que pertenece su servicio.
-
-Para simular la comunicación interna de cada entidad, se emplean interfaces de red tipo bridge huérfano que permiten simular el enrutado de capa 2 de un switch.
-Hay cuatro de estas interfaces, para la red pública Ceph, para la red de replicación entre OSDs, a la que se acoplan las máquinas virtuales y la pública de _OpenNebula_, que emplean núcleos, bases de datos y _endpoints_ de la federación.
-La interconexión entre los bridge se consigue mediante interfaces de pares VETH.
-Así, la figura del router queda relegada para el acceso a Internet o comunicación entre VLAN diferentes.
-Cabe destacar que ambas interfaces VETH cuentan con la capacidad de _trunk_ para poder transmitir paquetes de varias VLAN.
+Cada máquina virtual cuenta con dos interfaces tipo bridge sobre las que conectar los contenedores, una de ellas es para el despliegue de los componentes de _OpenNebula_, Ceph y las máquinas virtuales gestionadas por _OpenNebula_.
+La otra es la red de almacenamiento interno de Ceph.
+Además, las máquinas virtuales que simulan cada sede están en una misma red de administración, lo cual facilita luego el despliegue.
 
 Se define la red frontal de todo el sistema para que controle el acceso a Internet.
 Esta se detalla en el @puppet-virt[Anexo], en el subapartado del _gateway_.
 
-La red de contenedores emplea _macvlan_, redes virtuales que se acoplan a una interfaz física, sobre las interfaces VLAN en cada bridge.
+La red de contenedores emplea _macvlan_, redes virtuales que se acoplan a una interfaz física, en este caso los _bridge_.
 En el @asign-direcciones[Anexo] hay una tabla que refleja los aspectos de red que se tienen en cuenta durante el despliegue.
 === Almacenamiento
 
 
-El _host_ utilizado para simular la infraestructura, tiene definido un grupo volumen.
-Este cuenta con un volumen físico para los discos físicos y tantos volúmenes lógicos como necesite cada componente de la infraestructura, y arquitectura.
-Así, para los OSDs, que en total son seis, se instancian seis volúmenes lógicos, permitiendo el uso de forma más granular del almacenamiento físico.
+El _host_ utilizado para simular la infraestructura, tiene definido un _pool_ de almacenamiento de imágenes de disco.
+Este cuenta con tantas imágenes como necesite cada componente de la infraestructura, y arquitectura.
+Así, para los OSDs, que en total son seis, se instancian seis imágenes de 20GB, permitiendo el uso de forma más granular del almacenamiento físico.
 Los espacios de explotación y backup forman parte del clúster Ceph local, pero están diferenciados por el _device class_ de sus OSDs que permite asignarlos al pool de backup o explotación.
 
 Los pooles de Ceph definidos están configurados en modo réplica 3 y primario-copia, a excepción del pool de datos del sistema de ficheros para el backup, que emplea la técnica de _erasure code_ 3-1.
@@ -886,7 +879,9 @@ Se opta por la herramienta de despliegue automático Puppet @puppet-docs porque 
 Este tipo de herramientas permiten modelizar los recursos de un sistema y automatizar el aprovisionamiento de servidores, sin modificar las características previamente configuradas.
 El @puppet_virt_deploy muestra un ejemplo de código _Puppet_.
 
-En Puppet se definen los módulos _net_, _storage_ y _virt_ para el despliegue de cada parte de la infraestructura por separado. La relación de despliegue entre estos módulos se rige por la que se ha diseñado en la @deploy-design.
+En Puppet se definen los módulos _storage_ y _virt_ para el despliegue de cada parte de la infraestructura por separado.
+La relación de despliegue entre estos módulos se rige por la que se ha diseñado en la @deploy-design.
+Se ha empleado Bolt @bolt para el despliegue distribuido de estos recursos y Vagrant @vagrant-libvirt para el aprovisionamiento y despliegue de las máquinas virtuales que simulan cada sede.
 El detalle más fino y el uso de recursos personalizados de Puppet de estos módulos se comenta en el @puppet-manifests[Anexo].
 
 === Servicios de la federación <impl-fed-deploy>
@@ -1183,7 +1178,6 @@ Todos los _hooks_ definidos en _OpenNebula_ tienen prefijadas con unas líneas q
 Este código es el referenciado en varias partes de la memoria.
 Se interpreta la plantilla XML que _OpenNebula_ pasa como parámetro a cualquier _hook_, codificada en base 64.
 Se validan las políticas de nombrado y de sobrecarga. Para el recurso de trabajos de _backup_, se añade el identificador del recurso presentado a una la lista de máquinas virtuales en los trabajos de _backup_ principales.
-
 #let creation_hook = read("fragments/one-hooks/resource_create.rb")
 #raw(creation_hook, lang: "ruby")
 
@@ -1220,12 +1214,6 @@ A continuación se ofrece el código correspondiente al _middleware_ utilizado p
 
 En este anexo se documenta cada módulo _Puppet_ definido en el despliegue de la infraestructura.
 Cada uno de estos módulos consta de manifiestos en lenguaje _Puppet_, _scripts_ en lenguaje _ruby_, plantillas expresadas en metalenguaje _epp_ y funciones de utilidad compartidas para todo el módulo, también en lenguaje _ruby_.
-
-*Manifiesto principal*
-
-#let main_puppet = read("fragments/puppet/main.pp")
-#raw(main_puppet, lang: "puppet")
-
 
 == Módulo de almacenamiento <puppet-storage>
 Este módulo define los componentes esenciales para el despliegue de un clúster Ceph en un única máquina.
@@ -1463,28 +1451,8 @@ Una vez establecida, se incorporan dos núcleos más a la zona esclava.
 
 Se han empleado varias plantillas _epp_ entre las que destacan las de creación de ficheros de contenedor (_Containerfile_) y la configuración de los _datastore_.
 
-
 === Manifiestos
 
-*Archivo principal*
-
-Manifiesto, referenciado en el @puppet_virt_deploy, que despliega los servicios virtualizados de una entidad, según se ha especificado en el diseño e implementación.
-Primero se comprueba que exista el directorio donde crear las unidades _systemd_ de los contenedores.
-Se crea la red de contenedores, se despliega el _gateway_ y el clúster Ceph.
-Lo siguiente es crear el usuario s3 que emplea el _Marketplace_.
-De _OpenNebula_, lo pirmero que se despliega es la zona maestra con 3 núcleos forman el clúster en alta disponibilidad.
-Esto se consigue con el recurso _Puppet_ personalizado _virt::services::opennebula_ y el modo _ha_.
-Lo siguiente es desplegar un único núcleo en una zona distinta en modo _slave_leader_.
-Este último evento y la zona maestra son eventos concurrentes.
-El parámetro _zone_id_ corresponde al identificador de la zona maestra.
-Cuando se han desplegado la zona maestra y la esclava, se despliega el recurso que federa ambas zonas.
-Se termina formando el clúster de alta disponibilidad en la zona esclava y desplegando los recursos de Ceph para los servicios de backup, _OPA_ y monitorización.
-Además se corrigen algunos de los problemas encontrados y descritos en el anexo correspondiente.
-
-
-#let virt_puppet = read("fragments/puppet/virt/init.pp")
-#raw(virt_puppet, lang: "puppet")
-#pagebreak()
 
 *Unidad Systemd Podman*
 
@@ -1518,12 +1486,6 @@ Manifiesto que crea un fichero tipo contenedor, _Containerfile_, y construye la 
 
 #let container_file_puppet = read("fragments/puppet/virt/container_file.pp")
 #raw(container_file_puppet, lang: "puppet")
-#pagebreak()
-
-*Definición de variables*
-
-#let containers_puppet = read("fragments/puppet/virt/containers.pp")
-#raw(containers_puppet, lang: "puppet")
 #pagebreak()
 
 *Gateway*
@@ -1603,15 +1565,6 @@ Configura e instala paquetes necesarios para desplegar el demonio que conecta el
 #raw(kvm_node_puppet, lang: "puppet")
 #pagebreak()
 
-
-*Federación*
-
-Manifiesto que establece la federación entre dos zonas de _OpenNebula_.
-Modifica la configuración de ambas zonas para iniciar el proceso de replicación maestro-esclavo.
-
-#let federation_puppet = read("fragments/puppet/virt/federation.pp")
-#raw(federation_puppet, lang: "puppet")
-#pagebreak()
 
 *Despliegue Zona maestra de la federacion en HA*
 
@@ -1696,20 +1649,147 @@ Se puede acceder a aspectos de red y almacenamiento, lo cual resulta útil tras 
 #let one_ds_puppet = read("fragments/puppet/virt/templates/one_ds.epp")
 #raw(one_ds_puppet, lang: "text")
 #pagebreak()
-== Módulo de red <puppet-network>
-En este módulo están definidos los recursos de red definidos en la @net-impl con dependencias de despliegue internas: primero se despliegan los _bridge_ y después, sobre estas, las interfaces VETH.
+//== Módulo de red <puppet-network>
+//En este módulo están definidos los recursos de red definidos en la @net-impl con dependencias de despliegue internas: primero se despliegan los _bridge_ y después, sobre estas, las interfaces VETH.
+//
+//*Interfaces*
+//
+//#let ifaces_puppet = read("fragments/puppet/net/ifaces.pp")
+//#raw(ifaces_puppet, lang: "puppet")
+//
+//*Interfaz VETH*
+//
+//#let veth_puppet = read("fragments/puppet/net/veth.pp")
+//#raw(veth_puppet, lang: "puppet")
+//
+//#pagebreak()
 
-*Interfaces*
+= Planes de despliegue
 
-#let ifaces_puppet = read("fragments/puppet/net/ifaces.pp")
-#raw(ifaces_puppet, lang: "puppet")
+Se ha empleado la herramienta Puppet Bolt para controlar el despliegue distribuido de los manifiestos definidos previamente.
+Para ello se han definido una serie de planes de despliegue donde se especifican qué acciones se han de ejecutar, en este caso, se compilan y envian, a través de una conexión SSH y el protocolo Puppet, los manifiestos previamente definidos; los objetivos, es decir, las máquinas en las que existe un agente Puppet que pueda ejecutar la acción enviada; y una serie de opciones adicionales, como usuario de ejecución o distintas pruebas.
 
-*Interfaz VETH*
+Se ha empleado Hiera para definir las variables y parámetros de las clases Puppet.
+Así se consigue separar la información que corresponde cada entidad individualmente y agruparla en otros casos.
 
-#let veth_puppet = read("fragments/puppet/net/veth.pp")
-#raw(veth_puppet, lang: "puppet")
+*Plan principal*
 
+Manifiesto, referenciado en el @puppet_virt_deploy, que despliega los servicios virtualizados de una entidad, según se ha especificado en el diseño e implementación.
+Primero se comprueba que exista el directorio donde crear las unidades _systemd_ de los contenedores.
+Se crea la red de contenedores y el clúster Ceph.
+Lo siguiente es crear el usuario s3 que emplea el _Marketplace_.
+De _OpenNebula_, lo pirmero que se despliega es la zona maestra con 3 núcleos forman el clúster en alta disponibilidad.
+Esto se consigue con el recurso _Puppet_ personalizado _virt::services::opennebula_ y el modo _ha_.
+Lo siguiente es desplegar un único núcleo en una zona distinta en modo _slave_leader_.
+Este último evento y la zona maestra son eventos concurrentes.
+El parámetro _zone_id_ corresponde al identificador de la zona maestra.
+Cuando se han desplegado la zona maestra y la esclava, se despliega el recurso que federa ambas zonas.
+Se termina formando el clúster de alta disponibilidad en la zona esclava y desplegando los recursos de Ceph para los servicios de backup, _OPA_ y monitorización.
+Además se corrigen algunos de los problemas encontrados y descritos en el anexo correspondiente.
+
+#let main_bolt = read("fragments/plans/deploy_federation.pp")
+#raw(main_bolt, lang: "puppet")
 #pagebreak()
+
+*Plan despliegue de red*
+
+#let net_bolt = read("fragments/plans/net_ifaces.pp")
+#raw(net_bolt, lang: "puppet")
+#pagebreak()
+
+*Plan despliegue de Ceph*
+
+Este plan despliega un cluster Ceph y dos sitemas de ficheros CephFS en los objetivos especificados.
+Lo hace de forma distribuida y como el usuario _root_.
+
+#let ceph_bolt = read("fragments/plans/storage_ceph.pp")
+#raw(ceph_bolt, lang: "puppet")
+#pagebreak()
+
+*Plan despliegue de OpenNebula*
+
+Plan que crea el usuario s3 para el _Marketplace_ y despliega una primera zona maestra en alta disponibilidad.
+Posteriormente, en la máquina destinada a la zona esclava se despliega el líder de una nueva zona.
+
+#let nebinst_bolt = read("fragments/plans/nebula_instances.pp")
+#raw(nebinst_bolt, lang: "puppet")
+#pagebreak()
+
+*Plan despliegue de federación*
+
+Manifiesto que establece la federación entre dos zonas de _OpenNebula_.
+Modifica la configuración de ambas zonas para iniciar el proceso de replicación maestro-esclavo.
+
+#let fed_bolt = read("fragments/plans/nebula_federation.pp")
+#raw(fed_bolt, lang: "puppet")
+#pagebreak()
+
+*Plan despliegue de zona esclava*
+
+Plan de despliegue que incorpora dos núcleos de _OpenNebula_ a la zona esclava.
+
+#let slaves_bolt = read("fragments/plans/slaves_ha.pp")
+#raw(slaves_bolt, lang: "puppet")
+#pagebreak()
+
+*Plan despliegue de monitorización*
+
+Plan que despliega en paralelo el servicio de monitorización en ambas entidades.
+
+#let monitor_bolt = read("fragments/plans/monitoring.pp")
+#raw(monitor_bolt, lang: "puppet")
+#pagebreak()
+
+= Aprovisionamiento del entorno <vagrant>
+
+Para desplegar la red del entorno de despliegue, las máquinas virtuales y su aprovisionamiento se ha empleado la herramienta Vagrant.
+Ya que las máquinas virtuales son gestionadas por libvirt, se ha instalado el plugin de Vagrant que permite incorporar esta herramienta.
+
+A continuación se presentan los scripts de aprovisionamiento y el fichero _Vagrantfile_ definidos que automatizan el despliegue del entorno de virtualización partiendo de un sistema limpio.
+También se presenta la configuración del servicio HAProxy que ejecutan el _gateway_, para balancear la carga de las zonas Ceph, y los núcleos de _OpenNebula_, para proveer de terminación cifrada a los endpoint RPC.
+
+*Script de inicialización*
+
+Script que instala las dependencias básicas para poder desplegar las máquinas virtuales y la red e instala el maestro Puppet.
+
+#let initsh = read("fragments/init/init.sh")
+#raw(initsh, lang: "bash")
+#pagebreak()
+
+*Vagrantfile*
+
+Manifiesto que define dos máquinas virtuales, aprovisionadas por el mismo script Bash y pasando los certificados para los agentes Puppet.
+
+#let vagrantfile = read("fragments/init/Vagrantfile")
+#raw(vagrantfile, lang: "ruby")
+#pagebreak()
+
+*Aprovisionamiento de máquinas virtuales*
+
+Script Bash que instala Podman, y otras dependencias, y configura la red de las máquinas virtuales.
+
+#let vagrant_provisioning = read("fragments/init/vagrant_provision.sh")
+#raw(vagrant_provisioning, lang: "bash")
+#pagebreak()
+
+*Configuración HAProxy del _gateway_*
+
+Se define un _frontend_ que acepta las peticiones de acceso a recursos del _Marketplace_ y las redirige al _backend_ _s3-balancer_.
+El _backend_ aplica una política de _roundrobin_ sobre los RGW.
+
+#let haproxy_gateway = read("fragments/init/haproxy.s3.cfg")
+#raw(haproxy_gateway, lang: "ini")
+#pagebreak()
+
+*Configuración HAProxy de los núcleos*
+
+Terminación TLS para el endpoint RPC de los endpoint de _OpenNebula_.
+Se aplica a comunicaciones entre zonas distintas.
+
+#let haproxy_tls = read("fragments/init/haproxy.cfg")
+#raw(haproxy_tls, lang: "ini")
+#pagebreak()
+
 = Manifiestos OpenTofu <tofu-manifests>
 En este anexo se presentan los manifiestos de _OpenTofu_ empleados para describir la máquina virtual del validador de políticas, la del _backup_, junto a su datastore específico, la imagen de disco que emplean ambas máquinas y el _Marketplace_.
 Primero se ha de desplegar el manifiesto _00_providers_, especificando que solo se van a desplegar los usuarios y grupos con los que se deben desplegar el resto de recursos.
@@ -1782,6 +1862,7 @@ Se especifica el bucket, usuario y clave de acceso para conectar en el endpoint 
 #raw(marketplace_tofu, lang: "terraform")
 
 #pagebreak()
+
 
 = Infraestructura de red <asign-direcciones>
 

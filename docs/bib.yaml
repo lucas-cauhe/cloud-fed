@@ -89,3 +89,11 @@ cephfs:
     type: Web
     title: Ceph File System Documentation
     url: https://docs.ceph.com/en/latest/cephfs/#ceph-file-system
+bolt:
+    type: Web
+    title: Puppet Bolt Documentation
+    url: https://help.puppet.com/bolt/current/topics/bolt.htm
+vagrant-libvirt:
+    type: Web
+    title: Vagrant libvirt plugin Documentation
+    url: https://vagrant-libvirt.github.io/vagrant-libvirt/

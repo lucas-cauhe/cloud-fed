@@ -6,7 +6,7 @@ resource "opennebula_marketplace" "federation-marketplace" {
     access_key_id = "xxxxxxxxxxxxx"
     secret_access_key = "xxxxxxxxxxxxx"
     region = "marketplace"
-    endpoint_url = "http://192.168.10.95"
+    endpoint_url = "http://192.168.10.254"
     bucket_id= "xxxxxxxxxxxxx"
   }
 }
