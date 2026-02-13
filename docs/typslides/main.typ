@@ -15,7 +15,7 @@
 
 
 #show: university-theme.with(
-  aspect-ratio: "16-9",
+  aspect-ratio: "4-3",
   align: horizon,
   // config-common(handout: true),
   //config-common(frozen-counters: (theorem-counter,)),
@@ -27,25 +27,29 @@
     author: [Lucas Cauhé Viñao],
     date: datetime.today(),
     institution: [Escuela de Ingeniería y Arquitectura \ Universidad de Zaragoza],
-    logo: image("images/unizar.png", fit: "contain"),
+    logo: place(bottom + right, dy: +520pt, float: true, image("images/unizar.png", fit: "contain")),
+
   ),
 )
 
 #set text(
   lang: "es",
-  size: 20pt
+  font: "Liberation Sans",
+  size: 25pt
 )
 
-#set heading(numbering: (..nums) => {
-  let level = nums.pos().len()
-  if level == 1 {
-    numbering("1", ..nums)
-  }
-})
+//#set heading(numbering: (..nums) => {
+//  let level = nums.pos().len()
+//  if level == 2 {
+//    numbering("1", ..nums)
+//  }
+//})
+//#set heading(numbering: "1")
 #show outline.entry: it => link(
   it.element.location(),
-  it.indented(it.prefix(), it.body())
+  it.indented([>], it.body())
 )
+
 
 #title-slide(logo: none)
 
@@ -55,64 +59,127 @@
   outline(
     title: none,
     indent: 1em,
+    depth: 2,
     target: <outlined>
   )
 )
 
-= Introducción <outlined>
-==
+== Introducción <outlined>
+
+#grid(
+  rows: (1fr, 4fr),
+  gutter: 0%,
+  heading(depth: 3)[Contexto y motivación],
+  grid.cell(align: top + left, inset: 5%, list(
+    spacing: 50pt,
+   [Proyecto interuniversitario (UZ, EHU y UAL) Boira, SICUZ.],
+   [Gestión local de infraestructura pero recursos compartidos.],
+   [Planes de desarrollo UE para la soberanía informática.],
+  ))
+)
 
 #speaker-note[
   + SICUZ
   + Boira
+  + Definición de federación cloud
+  + Definición de entidad
+  + Despliegue manual de Boira
+  + Federación sigue otros proyectos europeos
+  *Posibles preguntas*
+
+  Problemática con VMWare
+
+  Sobrecarga asignada o en uso
 ]
 
-- *Motivación* #[
-- Gestión local de infraestructura pero servicios compartidos
-- Planes de desarrollo UE para la soberanía de la información.
-]
 
-#pause
+== Introducción
 
-- *Objetivos* #[
-- Definir, implementar y validar modelo de federación.
-- Dar una solución para la recuperación ante desastres.
-- Definir la organización de los usuarios en federación.
-]
+#grid(
+  rows: (1fr, 4fr),
+  gutter: 0%,
+  heading(depth: 3)[Objetivos],
+  grid.cell(align: top + left, inset: 5%,
+    list(
+      spacing: 40pt,
+     [Diseñar e implementar un modelo básico de federación _cloud_.
+     \
+     \
+     - Presentación de recursos de la federación, identificación y autorización de usuarios, y monitorización del sistema],
+     [Plan de recuperación ante desastres en entorno _cloud_.],
+    )
+  )
+)
 
-= Estado del arte <outlined>
-==
+
+= <touying:hidden>
+
+== Conceptos, tecnologías y herramientas
+== Conceptos, tecnologías y herramientas <outlined>
 
 #speaker-note[
-  + Cloud on premise OpenNebula con arquitectura distribuida.
-  + Almacenamiento distribuido Ceph
+  #text(size: 16pt)[
+  + Cloud on premise OpenNebula con limitada capacidad de federación.
+  + Explicar núcleo/controlador, hosts de virtualización y concepto datastore.
+  + Almacenamiento distribuido Ceph, arch y mención a RBD.
   + XACML, modelo para la validación de políticas y su definición basada en XML
   + NIST, modelo de federación basado en 3 capas de abstracción
+  + Mención al estudio de un modelo de mercado donde un broker media la adquisición de recursos de cada entidad.
+  Ligar con Marketplace OpenNebula.
   + Gaia X, proyecto europeo que desarrolla un modelo de federación, de donde tomar inspiración para políticas
-  + Despliegue automático.
+  + Despliegue automático por la entrada y salida dinámica de entidades y recursos.
+  + Modelos abstractos de config ayudan al prototipado del modelo.
+  + Qué es OPA
+  + Qué es Rego
+]
 ]
 
 #grid(
-  columns: (1fr, 1fr, 1fr),
-[
-  === Infraestructura
-  - Cloud On-Premise, OpenNebula
-  - Almacenamiento, Ceph
-],pause,[
-  === Servicios de la federación
-  - Gestor de políticas, XACML
-  - Modelo de federación, NIST
-  - Diseño de políticas, Gaia X
-],pause,[
-  === Despliegue
-  - Puppet
-  - Ansible
-  - OpenTofu
-])
+  rows: (1fr, 2fr, 2fr),
+  heading(depth: 3)[Infraestructura _Cloud_],
+  grid.cell(align: top + left, inset: 5%,
+  grid(
+    rows: (1fr, 4fr),
+    heading(depth: 4)[Fijados para el proyecto],
+    grid.cell(align: top + left, inset: 5%,
+      list(
+        spacing: 40pt,
+        [OpenNebula como _cloud_ on-premise e híbrido.],
+        [Ceph para almacenamiento distribuido de objetos, sin punto único de fallo.],
+      )
+    )
+  )
+  ),
+  grid.cell(align: top + left, inset: 5%,
+  grid(
+    rows: (1fr, 4fr),
+    heading(depth: 4)[Estudio propio],
+    grid.cell(align: top + left, inset: 5%,
+      list(
+        spacing: 40pt,
+        [Modelos abstractos de configuración de sistemas.],
+        [Recuperación ante desastres.],
+      )
+    )
+  )
+)
+)
 
-= Análisis y diseño <outlined>
+#grid(
+  rows: (1fr, 6fr),
+  heading(depth: 3)[Modelos de federación],
+  grid.cell(align: top + left, inset: 5%,
+    list(
+      spacing: 60pt,
+      [NIST _Cloud Federation Reference Architecture_.],
+      [IEEE _Market Models for Federated Clouds_.],
+      [Modelo de validación de políticas, XACML e implementación con OPA.],
+      [Diseño de políticas, Gaia X.],
+    )
+  )
+)
 
-==  Análisis del problema
+==  Análisis y requisitos del problema <outlined>
 
 #speaker-note[
   + Tolerancia a fallos y disponibilidad de cada componente (Infraestructura y servicios)
@@ -123,77 +190,39 @@
   + Disponibilidad de los datos de backup, almacenamiento de objetos y que pueda aprovechar las caracterísiticas que ofrece OpenNebula
 ]
 
-#grid(
-  columns: (1fr, 1fr, 1fr),
-[
-  === Federación
-  - Políticas de amplio alcance
-  - Gestor de políticas y sistema de monitorización
-  - Catálogo de recursos
-],pause,[
-  === Infraestructura
-  - Tolerante a fallos y alta disponibilidad
-  - Despliegue controlado
-  - Confiable y segura
-],pause,[
-  === Recuperación ante desastres
-  - Disponibilidad del dato
-  - Almacenamiento de objetos
-  - Integración con OpenNebula
-])
+#list(spacing: 40pt,
+ [*Tolerancia a fallos y disponibilidad* de componentes clásicos de entornos *cloud* (*nodos de cómputo y sistema de almacenamiento*) y *servicios de la federación*.],
+ [*Gobernanza* de la federación mediante *políticas* de SLA, almacenamiento, autorización de usuarios, nomenclatura y aplicación.],
+ [*Catálogo distribuido* de plantillas de VM e imágenes de disco ofrecidos por la federación.],
+ [Copias de VM en sistema de ficheros y disponibles para usuarios autorizados.],
+ [*Despliegue automático* y dependencias entre componentes del despliegue controladas.],
+)
 
-
-== Diseño
-
-#speaker-note[
-  + Cloud Privado para la información de los usuarios
-  + Adaptable mediante cumplimiento de políticas
-
-  *Posibles Preguntas*
-]
-
-#grid(
-  columns: (1fr, 1fr, 1fr),
-[
-  === Infraestructura
-  - Cloud On-Premise
-  - Confianza entre entidades
-  - Adaptable a cada escenario
-],pause,[
-  === Arquitectura
-  - Cloud Privado
-  - Estructura modular y libre implementación
-],pause,[
-  === Recuperación ante desastres
-  - Madurez de entorno real
-  - Contenido en OpenNebula
-])
+== Diseño <outlined>
 
 #slide[
-  === Arquitectura
+  #grid(
+    rows: (1fr, 7fr),
+    heading(depth: 3)[Arquitectura],
+    figure(image("images/arquitectura.png", height: 100%))
+  )
 
 #speaker-note[
   + Gestión de usuarios por defecto y lo que se ha hecho
-  + Inspiración del NIST, XACML, Gaia X
   + Qué es cada plano, qué servicios hay en cada uno
+  + Ir de abajo a arriba y desde arriba ligar con la infraestructura por los servicios virtuales ofrecidos por la infraestructura. Ligar con siguiente sección.
 
   *Posibles Preguntas*
 ]
 
-  #grid(
-  columns: (1fr, 1fr),
-  [
-    - Abstracción en 3 planos.
-    - Servicios de catálogo, control de accesos, monitorización y backup.
-    - Gestión extendida de usuarios.
-  ],
-  image("images/arquitectura.png", height: 80%)
-)
-
 ]
 
 #slide[
-  === Infraestructura
+  #grid(
+    rows: (1fr, 7fr),
+    heading(depth: 3)[Infraestructura],
+    figure(image("images/diseño-infra.png", fit: "cover"))
+  )
 
 #speaker-note[
   + Red y almacenamiento
@@ -205,83 +234,62 @@
   *Posibles Preguntas*
 ]
 
-  #grid(
-  columns: (1fr, 1fr),
-  [
-    - Red y almacenamiento aislado en cada entidad.
-    - OpenNebula y Ceph.
-    - Replicación segura.
-  ],
-  image("images/diseño-infra.png", height: 80%, fit: "contain")
-)
-
 ]
 
 
 #slide[
-  === Recuperación ante desastres
 
+  #grid(
+    rows: (1fr, 7fr),
+    heading(depth: 3)[Recuperación ante desastres],
+    figure(image("images/arquitectura-backup.png", fit: "cover"))
+  )
 #speaker-note[
+  + Estrategias aplicadas, políticas aplicadas, aplicación local de backups
+  + Recuperación disponible desde cualquier entidad autorizada
   + Desplegado en OpenNebula
   + Backup como elemento principal
   + Datastore Restic usando SFTP
   + Repositorio como SF compartido de Ceph
-  + Estrategias aplicadas
 
   *Posibles Preguntas*
 ]
 
-  #grid(
-    columns: (1fr, 1fr),
-    [
-      - Contenido en OpenNebula.
-      - Datastore de _backup_.
-      - Estrategia basada en _snapshots_ y _CoW_.
-    ],
-    image(
-      "images/arquitectura-backup.png",
-      height: 80%,
-      width: 70%,
-      fit: "contain"
-    )
-  )
 ]
 
 #slide[
-  === Despliegue
+  #grid(
+    rows: (1fr, 7fr),
+    heading(depth: 3)[Despliegue automatizado del prototipo],
+    figure(image("images/diseño-despliegue-01.png", height: 80%))
+  )
+
+  #grid(
+    rows: (1fr, 7fr),
+    heading(depth: 3)[Despliegue automatizado del prototipo],
+    figure(image("images/diseño-despliegue-02.png", fit: "cover"))
+  )
+
+  #grid(
+    rows: (1fr, 7fr),
+    heading(depth: 3)[Despliegue automatizado del prototipo],
+    figure(image("images/diseño-despliegue-03.png", fit: "cover"))
+  )
 
 #speaker-note[
-  + Explicar despliegue normal de OpenNebula.
-  + Explicar cada fase
+  + Explicar despliegue normal (distribuido) de OpenNebula.
+  + Explicar cada fase del despliegue
   + Por qué es semi-automático
 
   *Posibles Preguntas*
 ]
 
-  #grid(
-    columns: (1fr, 1fr),
-    [
-      - Despliegue distribuido de _OpenNebula_.
-      - Despliegue semi-automático.
-      - Definición de relaciones de despliegue entre recursos.
-    ],
-    image(
-      "images/diseño-despliegue.png",
-      height: 80%,
-      width: 70%,
-      fit: "contain"
-    )
-  )
 ]
 
-= Servicios de la federación <outlined>
-
-== Validador de políticas
+== Implementación <outlined>
 
 #speaker-note[
-  + Qué es OPA
   + Por qué OPA
-  + Qué es Rego
   + Qué políticas se validan (nombrado, sobrecarga, etc...) y por qué
   + Cómo se construye la petición y cómo es la respuesta
   + Quién es el cliente
@@ -289,52 +297,31 @@
 
   *Posibles Preguntas*
 ]
-
-#grid(
-  columns: (1fr, 1fr),
-  [
-    - Motor de control de accesos OPA
-    - Políticas expresadas en _Rego_
-    - Políticas de nomenclatura y sobrecarga
-  ],
-  image(
-    "images/opa-interaction.png",
-    height: 100%,
-    width: 100%,
-    fit: "contain"
+  #grid(
+    rows: (1fr, 20fr),
+    heading(depth: 3)[Validador de políticas],
+    figure(image("images/opa-interaction.png", fit: "cover"))
   )
-)
-
-== Monitorización
-
 
 #speaker-note[
-  + Qué se monitoriza (infraestructura como recursos, estado de la fed
-como estado de las vm)
-  + Por qué Prometheus
-  + Scrape period
-  + Políticas que hace cumplir y qué info aporta para otras
+  + Multi-site de reino a zona
 
   *Posibles Preguntas*
 ]
 
 #grid(
   columns: (1fr, 1fr),
-  [
-    - Monitorización de infraestructura y estado de la federación
-    - Servicio de monitorización Prometheus
-    - Cumplimiento de políticas
-  ],
-  image(
-    "images/monitor.png",
-    height: 80%,
-    width: 100%,
-    fit: "contain"
-  )
+  grid(
+  heading(depth: 3)[Catálogo de recursos],
+  rows: (1fr, 7fr),
+  list(
+    spacing: 60pt,
+    [_Marketplace_ _OpenNebula_.],
+    [Arquitectura \"Multi-site\" de Ceph.],
+    [Peticiones de recuperación de recursos balanceadas],
+  )),
+  figure(image("images/marketplace.png", fit: "cover"))
 )
-
-
-== Catálogo de recursos
 
 #speaker-note[
   + Qué significa el círculo negro
@@ -345,26 +332,19 @@ como estado de las vm)
   *Posibles Preguntas*
 ]
 
-#grid(
-  columns: (1fr, 1fr),
-  [
-    - _Marketplace_ _OpenNebula_
-    - Arquitectura \"Multi-site\" de Ceph
-    - Peticiones balanceadas
-  ],
-  image(
-    "images/marketplace.png",
-    height: 80%,
-    width: 100%,
-    fit: "contain"
-  )
-)
+//#grid(
+//  rows: (1fr, 17fr),
+//  heading(depth: 3)[Recuperación ante desastres],
+//  figure(image("images/impl-backup.png", fit: "cover"))
+//)
 
-
-== Interacción con los servicios
 
 #speaker-note[
   #text(size: 15pt)[
+  + Qué se monitoriza (infraestructura como recursos, estado de la fed
+como estado de las vm)
+  + Por qué Prometheus
+  + Políticas que hace cumplir y qué info aporta para otras
   + Explicar orden en el que suceden las operaciones
   + Explicar gestor de ejecución programada de eventos, HEM (API vs State hooks)
   + Explicar qué es y cómo viene dado el contexto del recurso
@@ -377,22 +357,12 @@ como estado de las vm)
     Modularización]
 ]
 
-#grid(
-  columns: (1fr, 1fr),
-  [
-    - Modelo de ejecución programada de eventos (_Hook Execution Manager_).
-    - Ejecución de _scripts_ Ruby.
-    - Obtención de métricas y validación de políticas.
-  ],
-  image(
-    "images/interaccion.png",
-    height: 80%,
-    width: 100%,
-    fit: "contain"
+  #grid(
+    rows: (1fr, 7fr),
+    heading(depth: 3)[Interacción entre servicios],
+    figure(image("images/interaccion-monitorizacion.png", height: 80%))
   )
-)
 
-== Despliegue
 
 #speaker-note[
   #text(size: 15pt)[
@@ -402,57 +372,151 @@ como estado de las vm)
   + Despliegue con usuarios diferentes y permisos
   + Gestión de la red
 
-  Poner código OpenTofu?
 
   *Posibles Preguntas*
 ]
 ]
 
 #let tofu_manifest = read("fragments/opa-deploy.tofu")
+#let main_plan_manifest = read("fragments/main_puppet.pp")
+#let run_plan_manifest = read("fragments/run_puppet.pp")
 
 #grid(
-  columns: (1fr, 1fr),
-  [
-    - Usuarios y permisos
-    - Almacenamiento y red
-    - Plan de despliegue
-  ],
-  listing(raw(tofu_manifest, lang: "terraform"))
+  rows: (1fr, 50fr),
+  heading(depth: 3)[Despliegue automatizado del prototipo],
+  grid(
+    columns: (1fr, 1fr),
+    grid(
+      rows: (1fr, 1fr),
+      gutter: -200pt,
+      figure(
+        listing(
+          text(size: 18pt, raw(
+            main_plan_manifest,
+            lang: "puppet")
+          )),
+          numbering: none),
+      figure(
+        listing(
+          text(size: 18pt,raw(
+            run_plan_manifest,
+            lang: "puppet")
+          ) ),
+          caption: text(
+            size: 16pt
+          )[Despliegue de componentes Ceph y nodos OpenNebula\ (Puppet Bolt)],
+          numbering: none),
+    ),
+    figure(
+      listing(
+        text(size: 16pt, raw(
+          tofu_manifest,
+          lang: "terraform"
+        ))
 
+      ),
+      caption: text(
+        size: 16pt
+      )[Despliegue de VM en el entorno de federación\ (OpenTofu)],
+      numbering: none
+    )
+
+  )
 )
 
 
-= Validación y pruebas <outlined>
-==
+== Validación y pruebas <outlined>
 
-- *Validación*
+#set list(spacing: 35pt)
 
-- *Pruebas de funcionamiento*
+- *Pruebas de funcionamiento* #[ \
 
-- *Prueba de sobrecarga*
+  - Obtención de imagen de disco del marketplace, tolerante al fallo de una entidad.
+  - Despliegue automático de VMs con imagen obtenida.
+  - Validación de políticas durante despliegue de VM.
+]
 
-- *Prueba de _backup_*
 
-= Conclusiones <outlined>
-==
+- *Prueba de sobrecarga* #[ \
+  - Usuarios de entidades diferentes.
+  - Impide despliegue de VM si el uso de CPU > 80%.
+]
+
+- *Prueba de _backup_* #[ \
+  - Recuperación de VM que ejecuta núcleo de OpenNebula
+]
+
+== Conclusiones <outlined>
 #speaker-note[
   + Prototipo funcional
   + Pruebas correctas
 ]
-- *Objetivos alcanzados* #[
-- Diseño, implementación y validación del prototipo de federación.
-- Backup como recuperación ante desastres
-- Gestión extendida de usuarios
-- Sistema validado y probado
+
+#grid(
+  rows: (1fr, 5fr),
+  heading(depth: 3)[Objetivos alcanzados],
+  grid.cell(align: top + left,
+    list(
+      spacing: 30pt,
+      [Diseño de un modelo de federación _cloud_ tolerante a fallos.
+
+      #[
+       - Políticas de autorización de usuarios, definición de VM, estrategias de backup y rendimiento de las entidades.
+      ]],
+     [Despliegue distribuido automatizado.],
+     [Prototipo funcional del modelo.
+
+     #[
+     - Gobernanza de las entidades con las políticas definidas.
+     - Catálogo de recursos distribuido y tolerante a fallos.
+     - Recuperación de máquinas virtuales a un estado previo.
+     ]],
+
+    )
+  )
+)
+
+#grid(
+  rows: (1fr, 1fr),
+  grid(
+    rows: (1fr, 4fr),
+    heading(depth: 3)[Trabajo futuro],
+    grid.cell(align: horizon + left, inset: 5%,
+      list(
+        spacing: 50pt,
+       [Desarrollo de políticas de red y seguridad a nivel de servicios.],
+       [Implementación de infraestructura de clave pública (PKI).],
+      )
+    )
+  ),
+  grid(
+    rows: (1fr, 4fr),
+    heading(depth: 3)[Conclusiones personales],
+    grid.cell(align: horizon + left, inset: 5%,
+      list(
+        spacing: 60pt,
+       [Exposición a un problema real.],
+       [Aprendizaje de nuevos conceptos y tecnologías.],
+      )
+    )
+  )
+)
+==
+#slide[
+  #align(center,
+  grid(
+    rows: (1fr, 1fr),
+    //stroke: 1pt,
+    heading(depth: 3)[Gracias por su atención],
+    grid(
+      rows: (2fr, 2fr, 1fr, 1fr),
+      heading(depth: 3)[Despliegue de una federación _cloud_],
+      heading(depth: 4)[Lucas Cauhé Viñao],
+      [Escuela de Ingeniería y Arquitectura],
+      [Universidad de Zaragoza],
+
+    )
+  )
+
+)
 ]
-
-#pause
-
-- *Conclusión Personal* #[
-- Exposición a un problema real
-- Gran aprendizaje
-]
-
-
-
-#title-slide(logo:none)

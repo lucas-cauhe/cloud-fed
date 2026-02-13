@@ -99,12 +99,12 @@ and monitoring and disaster recovery.*
 
 #set page(numbering: "I")
 
-#heading(outlined: false, numbering: none)[Agradecimientos]
+//#heading(outlined: false, numbering: none)[Agradecimientos]
 
-#align(center)[
-Gracias a quien me ha apoyado en todo este proceso.
+#align(right + horizon)[
+Gracias a mi familia y amigos por acompañarme en este proceso.
 
-Gracias a Eduardo, por ayudarme en el desarrollo del proyecto y a Unai, por
+Gracias a Eduardo, por guiarme en el desarrollo del proyecto, y a Unai, por
 aportar una mirada objetiva y sincera.
 ]
 
@@ -256,10 +256,6 @@ Also, a substantial  knowledge has been acquired along the way.
   (
     term: "Servidor puente",
     definition: [Almacenamiento intermedio donde asentar primero los imágenes al descargarlas o migrarlas en _OpenNebula_.],
-  ),
-  (
-    term: "Trunk",
-    definition: [En el contexto de interfaces de red que dejan pasar tráfico de VLAN, capacidad de la interfaz para transmitir más de una VLAN.],
   ),
   (
     term: "Zona OpenNebula",
@@ -699,7 +695,7 @@ El servidor en el que se simula la infraestructura tiene dos procesadores de 16 
   placement: auto
 ) <red-simulada>
 
-El despliegue está basado en contenedores _Podman_, que usan _Debian_ como sistema operativo, y dos máquinas virtuales que simulan cada sede geográficamente separada.
+El despliegue está basado en contenedores _Podman_ y dos máquinas virtuales que simulan cada sede geográficamente separada.
 Sabiendo que el backup y el sistema de control de accesos se despliegan en máquinas virtuales, se ha hecho la infraestructura lo más ligera posible.
 Cada contenedor se ejecuta en modo no privilegiado, aunque al _gateway_ se le asignan las _capabilities_ _NET\_RAW_ y _NET\_ADMIN_ que permiten modificar la red.
 Cualquier acceso a dispositivos físicos, en el caso de OSDs o asegurar la persistencia de las bases de datos, se realiza a través de volúmenes con los dispositivos previamente configurados y montados en una ruta específica en el host.
@@ -715,7 +711,8 @@ La distinción geográfica entre sedes se consigue haciendo que el tráfico pase
 Para ello, cada máquina virtual, que corresponde a una sede distinta, tiene configuradas rutas para su subred local y como puerta de enlace el _gateway_.
 En el servidor físico están definidas la interfaz tipo bridge para las máquinas virtuales y la red por defecto de contenedores.
 
-Cada máquina virtual cuenta con dos interfaces tipo bridge sobre las que conectar los contenedores, una de ellas es para el despliegue de los componentes de _OpenNebula_, Ceph y las máquinas virtuales gestionadas por _OpenNebula_.
+Cada máquina virtual cuenta con dos interfaces tipo bridge sobre las que conectar los contenedores.
+Una de ellas es para el despliegue de los componentes de _OpenNebula_, Ceph y las máquinas virtuales gestionadas por _OpenNebula_.
 La otra es la red de almacenamiento interno de Ceph.
 Además, las máquinas virtuales que simulan cada sede están en una misma red de administración, lo cual facilita luego el despliegue.
 
@@ -726,8 +723,7 @@ La red de contenedores emplea _macvlan_, redes virtuales que se acoplan a una in
 En el @asign-direcciones[Anexo] hay una tabla que refleja los aspectos de red que se tienen en cuenta durante el despliegue.
 === Almacenamiento
 
-
-El _host_ utilizado para simular la infraestructura, tiene definido un _pool_ de almacenamiento de imágenes de disco.
+Se ha empleado un _pool_ de almacenamiento, definido en _libvirt_, para almacenar las imágenes de disco.
 Este cuenta con tantas imágenes como necesite cada componente de la infraestructura, y arquitectura.
 Así, para los OSDs, que en total son seis, se instancian seis imágenes de 20GB, permitiendo el uso de forma más granular del almacenamiento físico.
 Los espacios de explotación y backup forman parte del clúster Ceph local, pero están diferenciados por el _device class_ de sus OSDs que permite asignarlos al pool de backup o explotación.
@@ -867,21 +863,20 @@ Ambos pueden encontrarse en el @hooks-anex[Anexo].
 
 === Infraestructura
 
-#let puppet_virt_deploy = read("fragments/puppet_virt_deploy.pp")
+#let puppet_virt_deploy = read("fragments/plans/deploy_federation.pp")
 
 #figure(
   listing(text(size: 11pt,raw(puppet_virt_deploy, lang: "puppet"))),
   placement: auto,
-  caption: [ Despliegue, en _Puppet_, de la federación _OpenNebula_, zonas en HA y pooles de Ceph. ]
+  caption: [ Despliegue, en _Puppet Bolt_, de la red, el clúster Ceph y la federación _OpenNebula_. ]
 ) <puppet_virt_deploy>
 
 Se opta por la herramienta de despliegue automático Puppet @puppet-docs porque permite definir las relaciones entre recursos de manera más granular y la naturaleza del problema permite instalar en cada servidor del despliegue un agente Puppet.
 Este tipo de herramientas permiten modelizar los recursos de un sistema y automatizar el aprovisionamiento de servidores, sin modificar las características previamente configuradas.
-El @puppet_virt_deploy muestra un ejemplo de código _Puppet_.
 
 En Puppet se definen los módulos _storage_ y _virt_ para el despliegue de cada parte de la infraestructura por separado.
 La relación de despliegue entre estos módulos se rige por la que se ha diseñado en la @deploy-design.
-Se ha empleado Bolt @bolt para el despliegue distribuido de estos recursos y Vagrant @vagrant-libvirt para el aprovisionamiento y despliegue de las máquinas virtuales que simulan cada sede.
+Se ha empleado Bolt @bolt para el despliegue distribuido, visto en el @puppet_virt_deploy, de los componentes de la infraestructura y Vagrant @vagrant-libvirt para el aprovisionamiento y despliegue de las máquinas virtuales que simulan cada sede.
 El detalle más fino y el uso de recursos personalizados de Puppet de estos módulos se comenta en el @puppet-manifests[Anexo].
 
 === Servicios de la federación <impl-fed-deploy>
@@ -1145,19 +1140,6 @@ En el @prom_alert_group se muestra un ejemplo de implementación de las polític
 == Despliegue en contenedores de Ceph <why-ceph-containers>
 
 Ceph está desplegado en contenedores ya que involucra la definición de un número _a priori_ indefinido de OSD. No se contempla la posibilidad de definir nodos LXC en _OpenNebula_ en esta versión temprana del proyecto, principalmente por la limitación de recursos de los que se dispone (se necesitaría otro servidor de virtualización). Al emplear la tecnología de contenedores, se tiene que hacer uso de un orquestador o una herramienta de despliegue automático que gestione los contenedores.
-
-== Múltiples instancias _OpenNebula_ en único servidor<server-problems>
-
-Cada instancia de _OpenNebula_ tendrá como único host de virtualización el mismo servidor donde se ha desplegado.
-Siendo que _OpenNebula_ define dominios de _libvirt_ al crear máquinas virtuales, y hay dos instancias de _OpenNebula_ corriendo, existe la posibilidad de que se creen dominios con identificadores duplicados.
-Por ello, ha habido que modificar el estado de _OpenNebula_, a nivel de base de datos, para que una de las instancias comience con un identificador de máquinas virtuales superior al otro. La entidad esclava empieza por el identificador 100.
-
-== Bucles de red <network-problem>
-
-La implementación del esquema de red del entorno de simulación es relativamente compleja.
-En este escenario, se ha detectado la presencia de bucles de red entre el router, los _bridge_ y la interfaz VETH que une los _bridge_.
-Para solucionar esta situación se ha activado el protocolo STP en los _bridge_, otorgándoles máxima prioridad para que la interfaz de VETH no quede en desuso.
-Por otro lado, la topología de red presentada es tolerante al fallo de la interfaz que une los bridges, a expensas de incrementar las latencias entre _OpenNebula_ y Ceph, lo cual no supone problemas graves.
 
 == Contenedores en máquina virtual <passthrough>
 Se ha de habilitar el modo de CPU _host-passthrough_ @host-passthrough @invalid-xml activo para permitir el uso de contenedores en una máquina virtual. Para ello, se ha desactivado el atributo restringido de _OpenNebula_ #emph[VM_RESTRICTED_ARGS=\"RAW/DATA\"].
@@ -1494,13 +1476,12 @@ El tráfico hacia el exterior es procesado por una serie de reglas de red.
 En este caso, se han establecido reglas de retransmisión de paquetes entre VLAN como puede verse en la @reglas-iptables.
 Este router es un contenedor _Alpine Linux_ con las reglas establecidas ya que no hay más necesidades de enrutamiento que las mencionadas.
 Este contenedor se acopla a los bridge que simulan las redes públicas internas de cada entidad.
-Esta configuración plantea un problema documentado en el @network-problem[Anexo].
 
 #let rules_iptables = read("fragments/iptables.txt")
 
 #figure(
   listing(raw(rules_iptables, lang: "text")),
-  caption: [ Reglas de IPTables para retransmisión de VLAN. ]
+  caption: [ Reglas de IPTables para retransmisión de paquetes. ]
 ) <reglas-iptables>
 
 #let gateway_puppet = read("fragments/puppet/virt/gateway.pp")

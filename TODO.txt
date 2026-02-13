@@ -1,3 +1,0 @@
-full hiera
-rehacer container_provision (como resource type, cambiarlo por otra cosa...)
-gestión de secretos
